@@ -1,11 +1,9 @@
 #ifndef SKYWATCHER_DRONE_H
 #define SKYWATCHER_DRONE_H
 
-#include "random"
+#include <random>
+#include "Structs.h"
 
-struct Position {
-    double x,y,z;
-};
 
 class Drone {
 private:

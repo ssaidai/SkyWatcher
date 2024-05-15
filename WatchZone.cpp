@@ -18,11 +18,15 @@ WatchZone::WatchZone() {
     }
 
     // Create sectors
+    int sectorID = 0;
     for (int y = 0; y < height; y += sectorSize * cellSize) {
         for (int x = 0; x < width; x += sectorSize * cellSize) {
-            sectors.push_back(std::make_unique<Sector>(cellSize, x / cellSize, y / cellSize, allCells));
+            sectors.push_back(std::make_unique<Sector>(sectorID++, x / cellSize, y / cellSize, allCells));
         }
     }
+
+    // Initialize cerebrum explicitly with the sectors
+    this->cerebrum = Cerebrum(sectors);
 }
 
 // This function calculates the area size of the region that a single drone can cover in 5 minutes

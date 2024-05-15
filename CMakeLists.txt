@@ -7,4 +7,8 @@ add_executable(SkyWatcher SkyWatcher.cpp
         Drone.cpp
         Drone.h
         WatchZone.cpp
-        WatchZone.h)
+        WatchZone.h
+        Cerebrum.cpp
+        Cerebrum.h
+        GridDefinitions.h
+        Structs.h)
