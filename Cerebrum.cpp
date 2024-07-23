@@ -21,9 +21,16 @@ Path Cerebrum::getPathToSector(int sectorId) {
     return {distance, static_cast<float>(distance / (30/3.6))};
 }
 
-Cerebrum::Cerebrum(const std::vector<std::unique_ptr<Sector>> &sectors) {
+void Cerebrum::solveTSP() {
+    // Populate the tsp paths for each region
+
+
+}
+
+void Cerebrum::initializeSectors(const std::vector<std::unique_ptr<Sector>> &sectors) {
     // Initialize paths to all sectors from the center
     for (int i = 0; i < sectors.size(); i++) {
         pathToSectors[i] = getPathToSector(i);
     }
 }
+

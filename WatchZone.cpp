@@ -25,8 +25,20 @@ WatchZone::WatchZone() {
         }
     }
 
-    // Initialize cerebrum explicitly with the sectors
-    this->cerebrum = Cerebrum(sectors);
+    // Initialize drones
+    for (int i = 0; i < droneCount; i++) {
+        drones.push_back(Drone());
+    }
+
+    // Initialize cerebrum and pass in the sectors
+    this->cerebrum = Cerebrum();
+    cerebrum.initializeSectors(sectors);
+
+    // Initialize the TSP solver with the paths to all sectors
+}
+
+Position WatchZone::getDronePosition(int droneID) {
+    return drones[droneID].getPosition();
 }
 
 // This function calculates the area size of the region that a single drone can cover in 5 minutes

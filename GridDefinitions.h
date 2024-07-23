@@ -10,10 +10,10 @@ public:
     Position center;
 
     // Ensure there's a default constructor
-    Cell() : left(0), right(0), top(0), bottom(0), center(0, 0, 0) {}
+    Cell() : left(0), right(0), top(0), bottom(0), center({0, 0, 0}) {}
 
     // Custom constructor
-    Cell(float l, float r, float t, float b) : left(l), right(r), top(t), bottom(b), center((left + right) / 2, (top + bottom) / 2, 0) {}
+    Cell(float l, float r, float t, float b) : left(l), right(r), top(t), bottom(b), center({(left + right) / 2, (top + bottom) / 2, 0}) {}
 };
 
 

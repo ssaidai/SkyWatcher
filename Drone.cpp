@@ -1,5 +1,14 @@
 #include "Drone.h"
 
+
+// Initialize static members
+const double Drone::maxBatteryLevel = 100;
+const double Drone::flightAutonomy = 30;
+const double Drone::rechargeTimeMin = 2;
+const double Drone::rechargeTimeMax = 3;
+const double Drone::speed = 30;
+const double Drone::visibilityRange = 10;
+
 // Constructor
 Drone::Drone() {
     batteryLevel = maxBatteryLevel; // Initialize battery level to maximum

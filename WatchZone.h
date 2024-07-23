@@ -12,13 +12,15 @@
 // WatchZone class using grid implementation and TSP algorithm
 class WatchZone {
 private:
-    float width, height = 6000;
+    float width = 6000, height = 6000;
     Position center = {3000, 3000, 0};
     std::vector<std::unique_ptr<Sector>> sectors;
     std::vector<Drone> drones;
     Cerebrum cerebrum;
 public:
     WatchZone();
+    Position getDronePosition(int droneID);
+    int droneCount = 9000;
 };
 
 

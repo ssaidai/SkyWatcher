@@ -5,6 +5,8 @@ struct Position {
     double x, y, z;
 };
 
+
+// maybe will need to add start and end position
 struct Path{
     double distance;
     float time;
