@@ -12,7 +12,7 @@ find_package(SFML 2.5 COMPONENTS graphics window system REQUIRED)
 # Source files
 set(SOURCE_FILES
         Cerebrum.cpp
-        Drone.cpp
+        Drone/Drone.cpp
         SkyWatcher.cpp
         WatchZone.cpp
         # Add other source files here

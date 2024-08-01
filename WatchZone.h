@@ -5,7 +5,7 @@
 #include <iostream>
 #include <cmath>
 #include <limits>
-#include "Drone.h"
+#include "Drone/Drone.h"
 #include "GridDefinitions.h"
 #include "Cerebrum.h"
 

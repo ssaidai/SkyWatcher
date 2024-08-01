@@ -1,6 +1,6 @@
 #include <SFML/Graphics.hpp>
 #include "Cerebrum.h"
-#include "Drone.h"
+#include "Drone/Drone.h"
 #include "WatchZone.h"
 
 // Function prototypes

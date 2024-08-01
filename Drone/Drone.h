@@ -2,15 +2,16 @@
 #define SKYWATCHER_DRONE_H
 
 #include <random>
-#include "Structs.h"
+#include "../Structs.h"
 
 
 class Drone {
 private:
-    Position position = {6000, 6000, 0}; // Current position
-    double batteryLevel; // Current battery level
+    Position position = {3000, 3000, 0}; // Current position
+    DroneState state; // Current drone state
+    Path currentPath; // Current path
 
-    static const double maxBatteryLevel; // Maximum battery level
+    double batteryLevel; // Current battery level
     static const double flightAutonomy; // Flight autonomy in minutes
     static const double rechargeTimeMin; // Minimum recharge time in hours
     static const double rechargeTimeMax; // Maximum recharge time in hours
@@ -19,14 +20,16 @@ private:
 
 public:
     Drone();
-    void move(double distance);
+    ~Drone(); // TODO: To be implemented
+    void move(double x, double y);
     void recharge();
+    void updatePosition();
     [[nodiscard]] Position getPosition() const;
+    [[nodiscard]] DroneState getDroneState() const;
     [[nodiscard]] bool isBatteryLow() const;
     [[nodiscard]] double getBatteryLevel() const;
 
     // Static getters
-    static double getMaxBatteryLevel() { return maxBatteryLevel; }
     static double getFlightAutonomy() { return flightAutonomy; }
     static double getRechargeTimeMin() { return rechargeTimeMin; }
     static double getRechargeTimeMax() { return rechargeTimeMax; }

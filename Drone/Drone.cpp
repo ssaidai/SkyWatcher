@@ -2,7 +2,6 @@
 
 
 // Initialize static members
-const double Drone::maxBatteryLevel = 100;
 const double Drone::flightAutonomy = 30;
 const double Drone::rechargeTimeMin = 2;
 const double Drone::rechargeTimeMax = 3;
@@ -11,14 +10,24 @@ const double Drone::visibilityRange = 10;
 
 // Constructor
 Drone::Drone() {
-    batteryLevel = maxBatteryLevel; // Initialize battery level to maximum
+    batteryLevel = 100; // Initialize battery level to maximum
 }
 
 // Simulate drone movement
-void Drone::move(double distance) {
-    double timeRequired = distance / speed; // Calculate time required to cover distance
-    // Decrease battery level based on flight time
-    batteryLevel -= (timeRequired / 60.0) * 100.0;
+void Drone::move(double x, y) {
+
+}
+
+// Update drone position
+void Drone::updatePosition() {
+    // Using linear interpolation: currentX = startX + ratio * deltaX
+    double deltaX = std::abs(currentPath.startX - currentPath.destX);
+    double deltaY = std::abs(currentPath.startY - currentPath.destY);
+    
+    // Ratio is the proportion between the distance currently traveled and the total distance
+    double ratio = (currentPath.startedBy * speed) / currentPath.distance; // TODO: Controllare l'unità di misura di startedBy
+    this.position.x = currentPath.startX + (ratio * deltaX);
+    this.position.y = currentPath.startY + (ratio * deltaY);
 }
 
 // Simulate drone recharge
@@ -27,6 +36,11 @@ void Drone::recharge() {
     double rechargeTime = rechargeTimeMin + static_cast<double>(rand()) / RAND_MAX * (rechargeTimeMax - rechargeTimeMin); // TODO: Use C++11 random library in the final implementation
     // Update battery level after recharge
     batteryLevel = std::min(batteryLevel + (rechargeTime / 3.0) * 100.0, maxBatteryLevel);
+}
+
+// Get current drone position
+Position Drone::getPosition() const {
+    return position
 }
 
 // Check if drone needs recharge
@@ -39,6 +53,7 @@ double Drone::getBatteryLevel() const {
     return batteryLevel;
 }
 
-Position Drone::getPosition() const {
-    return position;
+// Get current drone state
+DroneState Drone::getDroneState() const {
+    return state;
 }
