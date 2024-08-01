@@ -5,11 +5,21 @@ struct Position {
     double x, y, z;
 };
 
-
-// maybe will need to add start and end position
 struct Path{
-    double distance;
-    float time;
+    double distance; // Distance
+    double startX, startY; // Current path's starting point
+    double destX, destY; // Current path's destination point
+    float timeNeeded; // Time needed to reach destination of the current path
+    float startedBy;  // Time passed
+};
+
+struct DroneState {
+    enum Enum {
+        Recharging,
+        Waiting,
+        Running,
+        Ready
+    };
 };
 
 #endif //SKYWATCHER_STRUCTS_H
