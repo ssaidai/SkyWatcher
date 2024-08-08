@@ -2,24 +2,23 @@
 #define SKYWATCHER_STRUCTS_H
 
 struct Position {
-    double x, y, z;
+    double x, y;
 };
 
 struct Path{
     double distance; // Distance
-    double startX, startY; // Current path's starting point
-    double destX, destY; // Current path's destination point
+    Position start; // Current path's starting point
+    Position destination; // Current path's destination point
     float timeNeeded; // Time needed to reach destination of the current path
-    float startedBy;  // Time passed
+    float timeTraveled;  // Time passed
 };
 
-struct DroneState {
-    enum Enum {
-        Recharging,
-        Waiting,
-        Running,
-        Ready
-    };
+enum DroneState {
+   Charging,
+   Ready,
+   Flying,
+   Waiting,
+   Offline
 };
 
 #endif //SKYWATCHER_STRUCTS_H
