@@ -7,7 +7,7 @@
 
 class Drone {
 private:
-    Position position = {3000, 3000, 0}; // Current position
+    Position position = {3000, 3000}; // Current position
     DroneState state; // Current drone state
     Path currentPath; // Current path
 
@@ -21,7 +21,7 @@ private:
 public:
     Drone();
     ~Drone(); // TODO: To be implemented
-    void move(double x, double y);
+    void move(Position destination);
     void recharge();
     void updatePosition();
     [[nodiscard]] Position getPosition() const;
