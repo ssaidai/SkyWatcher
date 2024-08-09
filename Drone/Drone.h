@@ -21,13 +21,18 @@ private:
 public:
     Drone();
     ~Drone(); // TODO: To be implemented
-    void move(double x, double y);
+    void assignPath(Position destPoint);
+    void move();
     void recharge();
-    void updatePosition();
+    void consumption();
     [[nodiscard]] Position getPosition() const;
     [[nodiscard]] DroneState getDroneState() const;
+    [[nodiscard]] bool isBatteryCritical() const;
     [[nodiscard]] bool isBatteryLow() const;
     [[nodiscard]] double getBatteryLevel() const;
+
+    [[nodiscard]] double getCurrentOperationTime () const;
+    [[nodiscard]] double getCriticalBatteryLevel () const;
 
     // Static getters
     static double getFlightAutonomy() { return flightAutonomy; }
