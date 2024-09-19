@@ -1,8 +1,8 @@
 #ifndef SKYWATCHER_UTILS_H
 #define SKYWATCHER_UTILS_H
 
-#include "../Drone.h"
-#include "../Structs.h"
+#include "Drone.h"
+#include "Structs.h"
 
 namespace utils {
     double calculateDistance (Position startPoint, Position destPoint); // Calculate the distance between two points in metres

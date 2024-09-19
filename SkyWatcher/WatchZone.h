@@ -8,12 +8,13 @@
 #include "Drone/Drone.h"
 #include "GridDefinitions.h"
 #include "Cerebrum.h"
+#include "Redis/Redis.h"
 
-// WatchZone class using grid implementation and TSP algorithm
+// SkyWatcher class using grid implementation and TSP algorithm
 class WatchZone {
 private:
-    float width = 6000, height = 6000;
-    Position center = {3000, 3000, 0};
+    double width = 6000, height = 6000;
+    Position center = {3000, 3000};
     std::vector<std::unique_ptr<Sector>> sectors;
     std::vector<Drone> drones;
     Cerebrum cerebrum;

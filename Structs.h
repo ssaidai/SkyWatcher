@@ -3,8 +3,8 @@
 
 
 struct Position {
-    static const double x,
-    static const double y
+    double x;
+    double y;
 };
 
 struct Path {

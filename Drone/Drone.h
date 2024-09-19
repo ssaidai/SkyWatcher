@@ -7,8 +7,8 @@
 
 class Drone {
 private:
-    Position position = {3000, 3000, 0}; // Current position
-    DroneState state; // Current drone state
+    Position position = {3000, 3000}; // Current position
+    DroneState::Enum state; // Current drone state
     Path currentPath; // Current path
 
     double batteryLevel; // Current battery level

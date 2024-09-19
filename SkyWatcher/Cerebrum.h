@@ -3,6 +3,7 @@
 
 #include <unordered_map>
 #include <vector>
+#include <cstdint>
 #include "Structs.h"
 #include "GridDefinitions.h"
 #include <ortools/constraint_solver/routing.h>
@@ -13,16 +14,10 @@
 
 class Cerebrum {
 private:
-    std::unordered_map<int, Path> pathToSectors;
     std::vector<std::vector<Position>> regionsTSPPath;
 public:
-
-    Path getPathToSector(int sectorId);
-
-    void initializeSectors(const std::vector<std::unique_ptr<Sector>> &sectors);
-
     // TSP solver implementation
-    void solveTSP();
+    void solveTSP(const std::vector<std::unique_ptr<Sector>> &sector);
 };
 
 

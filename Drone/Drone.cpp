@@ -13,6 +13,16 @@ const double Drone::rechargeTimeMax = 3;
 const double Drone::speed = 30;
 const double Drone::visibilityRange = 10;
 
+
+//struct Path {
+//    Position startPoint;
+//    Position destPoint;
+//
+//    static const double distance;
+//    static const double criticalBatteryLevel; // TODO: This line should be implemented on the drone side, battery level of the drone is not stored in the path struct.
+//    static const float travelTime;
+//};
+
 // Constructor
 Drone::Drone() {
     batteryLevel = 100; // Initialize battery level at maximum
