@@ -2,37 +2,43 @@
 #define SKYWATCHER_DRONE_H
 
 #include <random>
+#include <memory>
 #include "../Structs.h"
 
 
 class Drone {
 private:
-    Position position = {3000, 3000}; // Current position
+    Position position = {3000.0, 3000.0}; // Current position
     DroneState::Enum state; // Current drone state
-    Path currentPath; // Current path
+    std::unique_ptr<Path> currentPath; // Current path
 
+    const int ID = 1; // Drone's unique ID TODO: Should be auto-increment
     double batteryLevel; // Current battery level
+    double criticalBatteryLevel; // When the next drone should be called
     static const double flightAutonomy; // Flight autonomy in minutes
     static const double rechargeTimeMin; // Minimum recharge time in hours
     static const double rechargeTimeMax; // Maximum recharge time in hours
-    static const double speed; // Speed in km/h
+    static const double speed; // Speed in m/s
     static const double visibilityRange; // Visibility range in meters
+    static const double consumptionRate; // batteryConsumption/s
 
 public:
     Drone();
     ~Drone(); // TODO: To be implemented
-    void assignPath(Position destPoint);
-    void move();
+    void receiveDestination(Position destPoint);
+    void arrive();
+    void monitor();
+    void back();
     void recharge();
-    void consumption();
+    void consumption(double rate);
+    void changeState(DroneState::Enum state);
     [[nodiscard]] Position getPosition() const;
-    [[nodiscard]] DroneState getDroneState() const;
+    [[nodiscard]] Position getDestination() const;
+    [[nodiscard]] DroneState::Enum getDroneState() const;
     [[nodiscard]] bool isBatteryCritical() const;
     [[nodiscard]] bool isBatteryLow() const;
     [[nodiscard]] double getBatteryLevel() const;
-
-    [[nodiscard]] double getCurrentOperationTime () const;
-    [[nodiscard]] double getCriticalBatteryLevel () const;
+    [[nodiscard]] int getID() const;
 
     // Static getters
     static double getFlightAutonomy() { return flightAutonomy; }

@@ -1,94 +1,129 @@
 #include "random"
 #include "thread"
 #include "chrono"
+#include "cmath"
 
 #include "Drone.h"
-#include "../Utils/utils.h"
+#include "Utils/utils.h"
 
 
 // Initialize static members
 const double Drone::flightAutonomy = 30;
 const double Drone::rechargeTimeMin = 2;
 const double Drone::rechargeTimeMax = 3;
-const double Drone::speed = 30;
+const double Drone::speed = 30 / 3.6;       // 30km/h in m/s
 const double Drone::visibilityRange = 10;
-
-
-//struct Path {
-//    Position startPoint;
-//    Position destPoint;
-//
-//    static const double distance;
-//    static const double criticalBatteryLevel; // TODO: This line should be implemented on the drone side, battery level of the drone is not stored in the path struct.
-//    static const float travelTime;
-//};
+const double Drone::consumptionRate = 100.0 / (Drone::flightAutonomy * 60.0); // consumptionRate/second
 
 // Constructor
 Drone::Drone() {
-    batteryLevel = 100; // Initialize battery level at maximum
+    this->batteryLevel = 100; // Initialize battery level at maximum
+    this->state = DroneState::Ready;
+    this->criticalBatteryLevel = 0.0;
 }
 
-// Assign a new path
-void Drone::assignPath(Position destPoint) {
+// Destructor
+Drone::~Drone() = default; // Change implementation if new resources should be manually freed
+
+// Receive new path from station
+void Drone::receiveDestination(Position destPoint) {
     if (this->state == DroneState::Ready) {
-        // Initialize all Path params
+        // Initialize Path's params
         Position startPoint = {this->position.x, this->position.y};
         double distance = utils::calculateDistance(startPoint, destPoint);
-        double travelTime = utils::calculateTime(distance, this->speed);
-        double criticalBatteryLevel = getCriticalBatteryLevel(travelTime, this->flightAutonomy);
+        float travelTime = utils::calculateTime(distance, Drone::speed);
+        std::vector<Position> foo{}; // TODO: TO BE IMPLEMENTED
 
         // Assign a new path to the drone
-        Path newPath = {startPoint, destPoint, distance, criticalBatteryLevel, travelTime};
-        this->currentPath = newPath;
+        this->currentPath = std::make_unique<Path>(startPoint, destPoint, foo, distance,  travelTime);
+
+        // Assign new critical battery level
+        this->criticalBatteryLevel = utils::getCriticalBatteryLevel(travelTime, Drone::flightAutonomy);
 
         // Drone should depart
         this->state = DroneState::Arriving;
-
-    } else {
-        // TODO: Error message
     }
+}
+
+// Simulate drone's movement toward the assigned sector
+void Drone::arrive() {
+    // Wait for the drone reaching the assigned sector
+    std::this_thread::sleep_for(std::chrono::duration<double>(this->currentPath->travelTime));
+    this->position = this->currentPath->destPoint;
+
+    // Change drone's state
+    changeState(DroneState::Waiting);
+
 }
 
 // Simulate drone movement
-void Drone::move() {
-    if (this->state == DroneState::Arriving || this->state == DroneState::Returning) {
-            // Update drone position: using linear interpolation: currentX = startX + ratio * deltaX
-            double deltaX = std::abs(currentPath.startPoint.x - currentPath.destPoint.x);
-            double deltaY = std::abs(currentPath.startPoint.y - currentPath.destPoint.y);
+void Drone::monitor() {
+    // The drone is going through every cell waypoint following the TSP-CPP algorithm
+    for (auto waypoint: this->currentPath->waypoints) {
+        // We need the travel time between the current cell and the next one TODO: travel time should be constant
+        double cellDistance = utils::calculateDistance(this->position, waypoint);
+        float cellTravelTime = utils::calculateTime(cellDistance, Drone::speed);
 
-            // Ratio is the proportion between the distance currently traveled and the total distance
-            double operationTime = Drone::getCurrentOperationTime();
-            double ratio = (operationTime * this->speed / 3.6) / this->currentPath.distance;
-            this->position.x = this->currentPath.startPoint.x + (ratio * deltaX);
-            this->position.y = this->currentPath.startPoint.y + (ratio * deltaY);
 
-    } else if (this->state == DroneState::Monitoring) {
-        // TODO: Do it
+        // Wait for the drone reaching the assigned sector
+        std::this_thread::sleep_for(std::chrono::duration<double>(cellTravelTime));
+        this->position = waypoint;
     }
 }
 
-// Simulate drone battery consumption
-void Drone::consumption() {
-    // double consumptionRate = 100.0 / (this->flightAutonomy * 60.0);
+// Simulate drone return
+void Drone::back(){
+    // Wait for the drone to return
+    changeState(DroneState::Returning);
+    std::this_thread::sleep_for(std::chrono::duration<double>(this->currentPath->travelTime));
+    this->position = this->currentPath->startPoint;
 
-    // TODO: Understand on which level should be implemented
+    // Change drone's state
+    changeState(DroneState::Charging);
+}
+
+// Simulate drone battery consumption
+void Drone::consumption(double ratio) {
+    // Battery level should never be fall below 0%
+    this->batteryLevel = std::max(this->batteryLevel - Drone::consumptionRate * ratio, 0.0);
+
+    // Out of charge check
+    if (this->batteryLevel == 0.0) {
+        changeState(DroneState::Offline);
+    }
 }
 
 // Simulate drone recharge
 void Drone::recharge() {
+    /* TODO: To be used in the final version
     // Initializing random number generator based on current time and a uniform distribution between 2h and 3h in seconds
     std::mt19937 rng(static_cast<unsigned int> (std::time(nullptr)));
-    std::uniform_real_distribution<double> chargeTimeDistribution(this->rechargeTimeMin * 3600.0, this->rechargeTimeMax * 3600.0);
+    std::uniform_real_distribution<double> chargeTimeDistribution(Drone::rechargeTimeMin * 3600.0, Drone::rechargeTimeMax * 3600.0);
 
     // chargeTime is a rng number in chargeTimeDistribution
     // chargeRate is the amount of battery charged every second
-    double chargeTime = chargeTimeDistribution(rng);
-    double chargeRate = (100.0 - this->batteryLevel) / chargeTime;
+    double rechargeTime = chargeTimeDistribution(rng);
+    double rechargeRate = (100.0 - this->batteryLevel) / rechargeTime;
 
     // Charge until full capacity
     while (this->batteryLevel < 100) {
-        // Charge for chargeRate amount every second
-        this->batteryLevel += chargeRate;
+        // Charge for rechargeRate amount every second
+        this->batteryLevel += rechargeRate;
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+    */
+
+    // Randomly select recharge time within specified range
+    double rechargeTime = Drone::rechargeTimeMin + static_cast<double>(rand()) / RAND_MAX * (Drone::rechargeTimeMax - Drone::rechargeTimeMin);
+    // rechargeRate for every second
+    double rechargeRate = (100.0 - this->batteryLevel) / (rechargeTime * 3600.0);
+
+    // Charge until full capacity
+    while (this->batteryLevel < 100) {
+        // Battery level should never exceed 100%
+        this->batteryLevel = std::max(this->batteryLevel + rechargeRate, 100.0);
+
+        // Wait a secondo before the next iteration
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
@@ -96,59 +131,46 @@ void Drone::recharge() {
     this->state = DroneState::Ready;
 }
 
-double Drone::getCurrentOperationTime() const {
-    double batteryUsed;
-    switch (this->state) {
-        case DroneState::Arriving:
-            // Percentage of battery used in proportion to the flight autonomy in seconds
-            return ( batteryUsed/ 100.0) * this->flightAutonomy * 60.0;
-
-        case DroneState::Monitoring:
-            // Percentage of battery used in the current cycle in proportion to the flight autonomy in seconds
-            // TODO: Maybe save 14.0 in the Path struct (one monitoring round = 4m = 240s = 13.333% battery)
-            batteryUsed = 14.0 - std::fmod((this->batteryLevel - (this->travelTime / this->flightAutonomy * 100.0)), 14.0);
-            return (batteryUsed / 100.0) * this->flightAutonomy * 60.0;
-
-        case DroneState::Returning:
-            // Percentage of battery used in proportion to the flight autonomy in seconds
-            batteryUsed = ((this->travelTime / this->flightAutonomy * 100.0) + std::fmod(100 - (this->travelTime / this->flightAutonomy * 100.0), 14)) - this->batteryLevel;
-            return (batteryUsed / 100.0) * this->flightAutonomy * 60.0;
-
-            // TODO: Maybe add case Recharging
-
-        default:
-            return -1.0;
-    }
-}
-
-// Get the percentage of battery when the next drone should be called
-double Drone::getCriticalBatteryLevel() const {
-    return (2 * (currentPath.travelTime / flightAutonomy * 100.0))
+// Change drone state
+void Drone::changeState(DroneState::Enum newState) {
+    this->state = newState;
 }
 
 // Check if drone battery is critical
 bool Drone::isBatteryCritical() const {
-    // Battery is critical when the next drone should be called
-    return batteryLevel <= currentPath.criticalBatteryLevel;
+    // Battery is critical when the subsequent drone should be called (1% tolerance)
+    return this->batteryLevel <= this->criticalBatteryLevel + 1;
 }
 
 // Check if drone battery is low
 bool Drone::isBatteryLow() const {
-    // Battery is low when the drone can't afford one more cycle
-    return batteryLevel < ((currentPath.criticalBatteryLevel / 2.0) + 14.0);
+    // Battery is low when the drone can't afford one more cycle and should return (1% tolerance)
+    return this->batteryLevel <= this->criticalBatteryLevel + utils::calculateDeviation(this->currentPath->travelTime,
+                                                                                        Drone::flightAutonomy) + 1;
 }
 
 // Get current drone position
 Position Drone::getPosition() const {
-    return position
+    return this->position;
+}
+
+// Get current drone destination
+Position Drone::getDestination() const {
+    return this->currentPath->destPoint;
 }
 
 // Get current battery level
 double Drone::getBatteryLevel() const {
-    return batteryLevel;
+    return this->batteryLevel;
 }
 
 // Get current drone state
-DroneState Drone::getDroneState() const {
-    return state;
+DroneState::Enum Drone::getDroneState() const {
+    return this->state;
 }
+
+int Drone::getID() const {
+    return this->ID;
+}
+
+
