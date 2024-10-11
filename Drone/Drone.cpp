@@ -20,6 +20,7 @@ Drone::Drone() {
     this->batteryLevel = 100; // Initialize battery level at maximum
     this->state = DroneState::Ready;
     this->criticalBatteryLevel = 0.0;
+    this->consumptionRatio = 1.0;
 }
 
 // Destructor
@@ -32,7 +33,7 @@ void Drone::receiveDestination(Position destPoint) {
         Position startPoint = {this->position.x, this->position.y};
         double distance = utils::calculateDistance(startPoint, destPoint);
         float travelTime = utils::calculateTime(distance, Drone::speed);
-        std::vector<Position> foo{}; // TODO: TO BE IMPLEMENTED
+        std::array<Position, 100> foo{}; // TODO: TO BE IMPLEMENTED
 
         // Assign a new path to the drone
         this->currentPath = std::make_unique<Path>(startPoint, destPoint, foo, distance,  travelTime);
@@ -52,8 +53,8 @@ void Drone::arrive() {
     this->position = this->currentPath->destPoint;
 
     // Change drone's state
-    changeState(DroneState::Waiting);
-
+    this->changeState(DroneState::Waiting);
+    // TODO: this->changeConsumptionRatio();
 }
 
 // Simulate drone movement
@@ -74,22 +75,22 @@ void Drone::monitor() {
 // Simulate drone return
 void Drone::back(){
     // Wait for the drone to return
-    changeState(DroneState::Returning);
+    this->changeState(DroneState::Returning);
     std::this_thread::sleep_for(std::chrono::duration<double>(this->currentPath->travelTime));
     this->position = this->currentPath->startPoint;
 
     // Change drone's state
-    changeState(DroneState::Charging);
+    this->changeState(DroneState::Charging);
 }
 
 // Simulate drone battery consumption
-void Drone::consumption(double ratio) {
+void Drone::consumption() {
     // Battery level should never be fall below 0%
-    this->batteryLevel = std::max(this->batteryLevel - Drone::consumptionRate * ratio, 0.0);
+    this->batteryLevel = std::max(this->batteryLevel - Drone::consumptionRate * this->consumptionRatio, 0.0);
 
     // Out of charge check
     if (this->batteryLevel == 0.0) {
-        changeState(DroneState::Offline);
+        this->changeState(DroneState::Offline);
     }
 }
 
@@ -134,6 +135,10 @@ void Drone::recharge() {
 // Change drone state
 void Drone::changeState(DroneState::Enum newState) {
     this->state = newState;
+}
+
+void Drone::changeConsumptionRatio(double ratio) {
+    this->consumptionRatio = ratio;
 }
 
 // Check if drone battery is critical
