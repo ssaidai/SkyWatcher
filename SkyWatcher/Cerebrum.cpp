@@ -2,6 +2,15 @@
 
 using namespace operations_research;
 
+
+Cerebrum::Cerebrum(const std::vector<std::shared_ptr<Sector>> &sectors) {
+    this->sectors = sectors;
+    // Solve TSP for each sector
+    for (const auto &sector : sectors) {
+        solveTSP();
+    }
+}
+
 void Cerebrum::solveTSP(const std::vector<std::unique_ptr<Sector>> &sectors) {
     const int gridSize = 10;  // 10x10 grid
     const int numCells = gridSize * gridSize;  // Total number of cells

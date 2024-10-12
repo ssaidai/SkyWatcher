@@ -16,11 +16,25 @@ const double Drone::visibilityRange = 10;
 const double Drone::consumptionRate = 100.0 / (Drone::flightAutonomy * 60.0); // consumptionRate/second
 
 // Constructor
-Drone::Drone() {
+Drone::Drone() : redisClient(RedisCommunication("127.0.0.1", 6379).get_redis_instance()) {
     this->batteryLevel = 100; // Initialize battery level at maximum
     this->state = DroneState::Ready;
     this->criticalBatteryLevel = 0.0;
     this->consumptionRatio = 1.0;
+
+    // Initialize connection to tower
+    redisClient.connect_to_tower([this](int droneID) {  // Lambda function to assign droneID, could be a member function
+        this->ID = droneID;
+    });
+
+    // Run this in the listener thread
+    redisClient.listen_for_commands([this](const std::string &json) {
+        // Execute the command after parsing json message
+        //this->executeCMD(command);
+    });
+
+    // Run this in the status update thread
+    redisClient.send_status_update("json encoded status");
 }
 
 // Destructor

@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <vector>
 #include <cstdint>
+#include <nlohmann/json.hpp>
 #include "Structs.h"
 #include "GridDefinitions.h"
 #include <ortools/constraint_solver/routing.h>
@@ -14,10 +15,12 @@
 
 class Cerebrum {
 private:
+    std::vector<std::shared_ptr<Sector>> sectors;
     std::vector<std::vector<Position>> regionsTSPPath;
 public:
+    explicit Cerebrum(const std::vector<std::shared_ptr<Sector>> &sectors);
     // TSP solver implementation
-    void solveTSP(const std::vector<std::unique_ptr<Sector>> &sector);
+    void solveTSP(const std::vector<std::shared_ptr<Sector>> &sector);
 };
 
 

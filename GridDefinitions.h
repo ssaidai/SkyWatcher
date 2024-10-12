@@ -30,7 +30,7 @@ private:
     Position startingPoint;
 
 public:
-    Sector(int sectorID, int startX, int startY, std::vector<std::vector<std::unique_ptr<Cell>>>& allCells) {
+    Sector(int sectorID, int startX, int startY, std::vector<std::vector<std::shared_ptr<Cell>>>& allCells) {
         this->sectorID = sectorID;
         this->grid.resize(10, std::vector<Cell*>(10));
         for (int i = 0; i < 10; i++) {

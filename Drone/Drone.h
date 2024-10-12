@@ -4,15 +4,17 @@
 #include <random>
 #include <memory>
 #include "../Structs.h"
+#include "../Redis/Redis.h"
 
 
 class Drone {
 private:
-    Position position = {3000.0, 3000.0};      // Current position
-    DroneState::Enum state;                          // Current drone state
+    Position position = {3000.0, 3000.0};    // Current position
+    DroneState::Enum state;                         // Current drone state
     std::unique_ptr<Path> currentPath;              // Current path
+    DroneClient redisClient;                        // Redis client
 
-    const int ID = 1;                       // Drone's unique ID TODO: Should be auto-increment
+    int ID;                                 // Drone's ID (assigned once connected to the tower)
     double batteryLevel;                    // Current battery level
     double criticalBatteryLevel;            // When the next drone should be called
     double  consumptionRatio;               // Drone's battery consumption rate
