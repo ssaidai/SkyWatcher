@@ -5,6 +5,8 @@
 #include "Redis/Redis.h"
 #include "Utils/utils.h"
 
+// TODO: Implement the threads in the drone class, the main file should only generate a bunch of child processes
+
 // Drone's battery thread implementation
 void battery(Drone& drone) {
     while (drone.getDroneState() != DroneState::Offline) {
