@@ -23,12 +23,3 @@ double utils::getCriticalBatteryLevel(double travelTime, const double flightAuto
 double utils::calculateDeviation(double travelTime, double flightAutonomy) {
     return std::fmod(100.0 - (2 * (travelTime / flightAutonomy * 100.0)), 14.0);
 }
-
-std::string utils::statusToJSON(Drone& drone) {
-    std::string droneState = "State: " + std::to_string(drone.getDroneState());
-    std::string position = "Position: (" + std::to_string(drone.getPosition().x) + ", "
-            + std::to_string(drone.getPosition().y) + ")";
-    std::string batteryLevel = "Battery Level: " + std::to_string(drone.getBatteryLevel()) + "%";
-    std::string critical = "Critical Point: " + std::to_string(drone.isBatteryCritical());
-    return "{" + droneState + ", " + position + ", " + batteryLevel + ", " + critical + "}";
-}
