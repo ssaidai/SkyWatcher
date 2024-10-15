@@ -5,15 +5,30 @@
 struct Position {
     double x;
     double y;
+
+    // Override == operation
+    bool operator==(const Position& other) const {
+        return (x == other.x) && (y == other.y);
+    }
+
+    // Override != operation
+    bool operator!=(const Position& other) const {
+        return !(*this == other);
+    }
 };
 
 struct Path {
     Position startPoint; // Starting point
     Position destPoint; // Destination point
 
-    static const double distance; // Distance
-    static const double criticalBatteryLevel; // When the next drone should be called
-    static const float travelTime; // Time needed to reach destination of the current path
+    std::array<Position, 100> waypoints; // Cell visit order according to the TCP-CPP
+    const double distance; // Distance
+    const float travelTime; // Time needed to reach destination of the current path
+
+
+    // Constructor
+    Path(const Position& start, const Position& dest, const std::array<Position, 100>& wp, double dist, float time)
+            : startPoint(start), destPoint(dest), waypoints(wp), distance(dist), travelTime(time) {}
 };
 
 struct DroneState {
@@ -26,6 +41,13 @@ struct DroneState {
         Returning, // Returning to the tower
         Offline // Drone is not operative
     };
+};
+
+struct Status {
+    DroneState::Enum state;
+    Position position;
+
+    double batteryLevel;
 };
 
 #endif //SKYWATCHER_STRUCTS_H

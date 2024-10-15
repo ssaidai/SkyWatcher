@@ -1,16 +1,20 @@
-#ifndef SKYWATCHER_REDIS_H
-#define SKYWATCHER_REDIS_H
+#ifndef REDIS_COMMUNICATION_HPP
+#define REDIS_COMMUNICATION_HPP
 
-// To use this you need hiredis and redis-plus-plus libraries
 #include <sw/redis++/redis++.h>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <functional>
 #include <iostream>
-
-// TODO: change all standard outputs to use a logging lib
+#include <atomic>
+#include <thread>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
 
 using namespace sw::redis;
 
+// Core Redis communication class (establishes a connection to Redis)
 class RedisCommunication {
 public:
     RedisCommunication(const std::string &host, int port) {
@@ -23,8 +27,8 @@ public:
     }
 
     ~RedisCommunication() {
-        // Proper cleanup of the redis connection
-        redis->flushall();
+        // Proper cleanup of the Redis connection
+        redis->flushall();  // Optional, clears all keys; can be removed if not needed
     }
 
     std::shared_ptr<Redis> get_redis_instance() {
@@ -35,37 +39,105 @@ private:
     std::shared_ptr<Redis> redis;
 };
 
-// Tower Client (for sending commands to drones)
+// Tower Client (for controlling drones)
 class TowerClient {
 public:
-    TowerClient(const std::shared_ptr<Redis> &redis) : redis(redis) {}
+    explicit TowerClient(const std::shared_ptr<Redis> &redis) : redis(redis), drone_id_counter(0) {}
 
-    // Send command to a specific drone
+    // Start a listener thread to handle new drone connections
+    void start_listening_for_drones() {
+        std::thread listener_thread([this]() {
+            this->listen_for_drone_connections();
+        });
+        listener_thread.detach();
+    }
+
+    // Send a command to a specific drone
     void send_command_to_drone(const std::string &drone_id, const std::string &command) {
         std::string drone_command_key = "drone:" + drone_id + ":commands";
         redis->rpush(drone_command_key, command);  // Use a list to enqueue commands for the drone
         std::cout << "Command sent to drone " << drone_id << ": " << command << std::endl;
     }
 
-    // Optionally, send a broadcast command to all drones (for maintenance or global update)
+    // Optionally broadcast a command to all drones
     void broadcast_command(const std::string &command) {
-        redis->publish("drone:broadcast", command);  // Publish command to a broadcast channel
+        redis->publish("drone:broadcast", command);  // Publish to a broadcast channel
         std::cout << "Broadcast command: " << command << std::endl;
     }
 
 private:
     std::shared_ptr<Redis> redis;
+    std::atomic<int> drone_id_counter;
+
+    // Listen for new drone connections on the handshake channel
+    void listen_for_drone_connections() {
+        auto subscriber = redis->subscriber();
+        subscriber.subscribe("drone:handshake");
+
+        // Handle incoming handshake messages from drones
+        subscriber.on_message([this](const std::string& channel, const std::string& message) {
+            this->initialize_drone(message);
+        });
+
+        // Could be improved with threading to handle multiple connections concurrently
+
+        // Continuously consume handshake messages
+        try {
+            while (true) {
+                subscriber.consume();
+            }
+        } catch (const Error &err) {
+            std::cerr << "Error consuming handshake messages: " << err.what() << std::endl;
+        }
+    }
+
+    // Initialize the drone by assigning it a unique ID and sending initialization data
+    void initialize_drone(const std::string &drone_info_json) {
+        // Parse the received drone "hello" message
+        auto drone_info = nlohmann::json::parse(drone_info_json);
+        std::string drone_uuid = drone_info["drone_uuid"];
+
+        // Assign a unique drone ID
+        int new_drone_id = ++drone_id_counter;
+
+        // Create an initialization message with the assigned ID and an area to monitor
+        nlohmann::json init_message = {
+                {"drone_id", new_drone_id}
+        };
+
+        // Send initialization message back to the drone
+        std::string drone_channel = "drone:" + drone_uuid + ":init";
+        redis->publish(drone_channel, init_message.dump());
+
+        std::cout << "Drone " << drone_uuid << " initialized with ID: " << new_drone_id << std::endl;
+    }
 };
 
 // Drone Client (for receiving commands and sending status updates)
 class DroneClient {
 public:
-    DroneClient(const std::shared_ptr<Redis> &redis, const std::string &drone_id)
-            : redis(redis), drone_id(drone_id) {}
+     DroneClient(const std::shared_ptr<Redis> &redis)
+            : redis(redis), drone_uuid(generate_uuid()) {}
 
-    // Listen to commands sent to this drone
-    void listen_for_commands(const std::function<void(const std::string &)> &callback) {
-        std::string drone_command_key = "drone:" + drone_id + ":commands";
+    // Send a handshake to the tower to register the drone
+    void connect_to_tower(const std::function<void(const int &)>& callback) {
+        nlohmann::json handshake_message = {
+                {"drone_uuid", drone_uuid}
+        };
+
+        // Publish a handshake message to the tower
+        redis->publish("drone:handshake", handshake_message.dump());
+
+        // Listen for initialization message from the tower
+        std::thread init_listener_thread([this, callback]() {
+            this->listen_for_initialization(callback);
+        });
+        init_listener_thread.join();  // Wait for initialization to complete
+    }
+
+    // Start listening for commands after initialization
+    [[noreturn]] void listen_for_commands(const std::function<void(const std::string &)> &callback) {
+        std::string drone_command_key = "drone:" + std::to_string(drone_id) + ":commands";
 
         while (true) {
             auto command = redis->blpop(drone_command_key, 0);  // Blocking pop (wait for a command)
@@ -76,16 +148,49 @@ public:
         }
     }
 
-    // Send status update (like position or monitoring data) back to the tower
-    void send_status_update(const std::string &status) {
-        std::string status_key = "drone:" + drone_id + ":status";
-        redis->set(status_key, status);  // Use a simple key-value pair for storing status
+    // Send status update to the tower
+    void send_status_update(const nlohmann::json &status) {
+        std::string status_key = "drone:" + std::to_string(drone_id) + ":status";
+        redis->set(status_key, status.dump());  // Update status in Redis
         std::cout << "Drone " << drone_id << " status updated: " << status << std::endl;
     }
 
 private:
     std::shared_ptr<Redis> redis;
-    std::string drone_id;
+    std::string drone_uuid;     // Unique drone identifier
+    int drone_id;               // Assigned after initialization
+
+    // Generate a UUID for the drone name
+    std::string generate_uuid() {
+        boost::uuids::uuid uuid = boost::uuids::random_generator()();
+        return boost::uuids::to_string(uuid);
+    }
+
+    // Listen for initialization message from the tower
+    void listen_for_initialization(const std::function<void(const int &)>& callback) {
+        auto subscriber = redis->subscriber();
+        std::string drone_channel = "drone:" + drone_uuid + ":init";
+        subscriber.subscribe(drone_channel);
+
+        subscriber.on_message([this, callback](const std::string& channel, const std::string& message) {
+            // Parse the initialization message
+            auto init_message = nlohmann::json::parse(message);
+            drone_id = init_message["drone_id"];
+
+            std::cout << "Drone initialized with ID: " << drone_id << std::endl;
+
+            if (callback) {
+                callback(drone_id);
+            }
+        });
+
+        // Wait for initialization message
+        try {
+            subscriber.consume();
+        } catch (const Error &err) {
+            std::cerr << "Error subscribing to initialization: " << err.what() << std::endl;
+        }
+    }
 };
 
-#endif //SKYWATCHER_REDIS_H
+#endif  // REDIS_COMMUNICATION_HPP
