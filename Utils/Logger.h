@@ -51,6 +51,8 @@ public:
                                   const std::chrono::system_clock::time_point& simulationEndTime,
                                   const std::chrono::minutes& maxInterval);
 
+    static std::string formatTimePoint(const std::chrono::system_clock::time_point& timePoint);
+
 private:
     std::ofstream commandLogFile;
     std::ofstream visitLogFile;

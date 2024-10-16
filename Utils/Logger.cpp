@@ -112,7 +112,6 @@ void Logger::logVisit(const std::string& droneID, double x, double y, double bat
     }
 }
 
-// Parsing function for visit logs
 bool Logger::parseVisitLogLine(const std::string& line, std::string& timestamp, std::string& droneID, double& x, double& y, double& batteryLevel) {
     // Expected log line format:
     // YYYY-MM-DD HH:MM:SS Drone <DroneID> visited point <x>,<y> battery <batteryLevel>
@@ -130,15 +129,30 @@ bool Logger::parseVisitLogLine(const std::string& line, std::string& timestamp, 
                 batteryLevel = std::stod(match[5]);
             } catch (...) {
                 // Parsing error
+                std::cerr << "Error parsing numeric values in log line: " << line << std::endl;
                 return false;
             }
+
+            // Check if x and y are within acceptable ranges (0 to 6000 meters)
+            if (x < 0.0 || x >= 6000.0 || y < 0.0 || y >= 6000.0) {
+                std::cerr << "Error: Position out of bounds (" << x << ", " << y << ") in log line: " << line << std::endl;
+                // Continue processing to collect all errors
+            }
+
+            // Check if batteryLevel is within acceptable range (0% < batteryLevel ≤ 100%)
+            if (batteryLevel <= 0.0 || batteryLevel > 100.0) {
+                std::cerr << "Error: Battery level out of bounds (" << batteryLevel << "%) in log line: " << line << std::endl;
+                // Continue processing to collect all errors
+            }
+
             return true;
         }
     }
+    std::cerr << "Failed to parse log line: " << line << std::endl;
     return false;
 }
 
-// Function to parse the entire visit log file
+
 void Logger::parseVisitLogFile(const std::string& visitLogFilename,
                                std::map<std::pair<int, int>, std::vector<std::chrono::system_clock::time_point>>& cellVisitTimes,
                                std::chrono::system_clock::time_point& simulationStartTime,
@@ -167,11 +181,11 @@ void Logger::parseVisitLogFile(const std::string& visitLogFilename,
             std::time_t timeT = std::mktime(&tm);
             std::chrono::system_clock::time_point timestamp = std::chrono::system_clock::from_time_t(timeT);
 
-            // Map coordinates to cell indices
-            int cellX = static_cast<int>(x / 20.0); // Cell size is 20m
+            // Map coordinates to cell indices (assuming cell size is 20m)
+            int cellX = static_cast<int>(x / 20.0);
             int cellY = static_cast<int>(y / 20.0);
 
-            // Ensure indices are within bounds
+            // Ensure indices are within bounds (0 to 299)
             if (cellX >= 0 && cellX < 300 && cellY >= 0 && cellY < 300) {
                 std::pair<int, int> cellCoord = std::make_pair(cellX, cellY);
                 cellVisitTimes[cellCoord].push_back(timestamp);
@@ -186,8 +200,6 @@ void Logger::parseVisitLogFile(const std::string& visitLogFilename,
             } else {
                 std::cerr << "Invalid cell coordinates: (" << cellX << ", " << cellY << ") for position (" << x << ", " << y << ")" << std::endl;
             }
-        } else {
-            std::cerr << "Failed to parse log line: " << line << std::endl;
         }
     }
 
@@ -199,61 +211,68 @@ void Logger::parseVisitLogFile(const std::string& visitLogFilename,
     }
 }
 
-// Function to analyze cell visits
+
 void Logger::analyzeCellVisits(const std::map<std::pair<int, int>, std::vector<std::chrono::system_clock::time_point>>& cellVisitTimes,
                                const std::chrono::system_clock::time_point& simulationStartTime,
                                const std::chrono::system_clock::time_point& simulationEndTime,
                                const std::chrono::minutes& maxInterval) {
-    std::vector<std::pair<int, int>> cellsWithIssues;
+    bool allCellsOk = true;
 
+    // Iterate over all possible cells in the grid
     for (int x = 0; x < 4; ++x) {
         for (int y = 0; y < 4; ++y) {
             std::pair<int, int> cellCoord = std::make_pair(x, y);
             auto it = cellVisitTimes.find(cellCoord);
-            bool cellHasIssue = false;
 
             if (it == cellVisitTimes.end()) {
                 // Cell was never visited
-                cellHasIssue = true;
+                allCellsOk = false;
+                std::cout << "Cell (" << x << ", " << y << ") was never visited during the simulation." << std::endl;
             } else {
                 const auto& visits = it->second;
+
                 // Check from simulation start to first visit
-                if ((visits.front() - simulationStartTime) >= maxInterval) {
-                    cellHasIssue = true;
+                auto interval = std::chrono::duration_cast<std::chrono::minutes>(visits.front() - simulationStartTime);
+                if (interval >= maxInterval) {
+                    allCellsOk = false;
+                    std::cout << "Cell (" << x << ", " << y << ") was not visited in " << maxInterval.count() << " minutes." << std::endl;
+                    std::cout << "Visited at time: " << Logger::formatTimePoint(visits.front()) << ", last time visited at simulation start." << std::endl;
                 }
 
                 // Check intervals between visits
                 for (size_t i = 1; i < visits.size(); ++i) {
-                    auto duration = std::chrono::duration_cast<std::chrono::minutes>(visits[i] - visits[i - 1]);
-                    if (duration >= maxInterval) {
-                        cellHasIssue = true;
-                        break; // No need to check further
+                    interval = std::chrono::duration_cast<std::chrono::minutes>(visits[i] - visits[i - 1]);
+                    if (interval >= maxInterval) {
+                        allCellsOk = false;
+                        std::cout << "Cell (" << x << ", " << y << ") was not visited in " << maxInterval.count() << " minutes." << std::endl;
+                        std::cout << "Visited at time: " << Logger::formatTimePoint(visits[i]) << ", last time visited at " << Logger::formatTimePoint(visits[i - 1]) << "." << std::endl;
                     }
                 }
 
-                // Check from last visit to simulation end, not sure about this
-                if ((simulationEndTime - visits.back()) >= maxInterval) {
-                    cellHasIssue = true;
+                // Check from last visit to simulation end
+                interval = std::chrono::duration_cast<std::chrono::minutes>(simulationEndTime - visits.back());
+                if (interval >= maxInterval) {
+                    allCellsOk = false;
+                    std::cout << "Cell (" << x << ", " << y << ") was not visited in " << maxInterval.count() << " minutes before simulation end." << std::endl;
+                    std::cout << "Last visit at: " << Logger::formatTimePoint(visits.back()) << std::endl;
                 }
             }
-
-            if (cellHasIssue) {
-                cellsWithIssues.push_back(cellCoord);
-            }
         }
     }
 
-    // Report results
-    if (cellsWithIssues.empty()) {
+    if (allCellsOk) {
         std::cout << "All cells were visited within every " << maxInterval.count() << "-minute interval." << std::endl;
-    } else {
-        std::cout << "Cells that were not visited within every " << maxInterval.count() << "-minute interval:" << std::endl;
-        for (const auto& cell : cellsWithIssues) {
-            std::cout << "Cell (" << cell.first << ", " << cell.second << ")" << std::endl;
-        }
-        std::cout << "Total cells with issues: " << cellsWithIssues.size() << std::endl;
     }
 }
+
+std::string Logger::formatTimePoint(const std::chrono::system_clock::time_point& timePoint) {
+    std::time_t timeT = std::chrono::system_clock::to_time_t(timePoint);
+    std::tm tm = *std::localtime(&timeT);
+    char buffer[20];
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &tm);
+    return buffer;
+}
+
 
 /**
 // Function to check the battery level of the drone
