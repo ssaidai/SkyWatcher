@@ -1,5 +1,6 @@
 #ifndef SKYWATCHER_STRUCTS_H
 #define SKYWATCHER_STRUCTS_H
+#include <array>
 
 
 struct Position {
@@ -19,7 +20,6 @@ struct Position {
 
 struct Path {
     Position startPoint; // Starting point
-    Position destPoint; // Destination point
 
     std::array<Position, 100> waypoints; // Cell visit order according to the TCP-CPP
     const double distance; // Distance
@@ -27,8 +27,8 @@ struct Path {
 
 
     // Constructor
-    Path(const Position& start, const Position& dest, const std::array<Position, 100>& wp, double dist, float time)
-            : startPoint(start), destPoint(dest), waypoints(wp), distance(dist), travelTime(time) {}
+    Path(const Position& start, const std::array<Position, 100>& wp, double dist, float time)
+            : startPoint(start), waypoints(wp), distance(dist), travelTime(time) {}
 };
 
 struct DroneState {
