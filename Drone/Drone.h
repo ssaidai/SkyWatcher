@@ -39,6 +39,9 @@ public:
     void monitor();                                           // Monitor the assigned sector
     void back();                                              // Move back
 
+    // Threads
+    [[noreturn]] void statusUpdateThread();                                // Update drone's status on redis
+
     [[nodiscard]] Position getPosition() const;
     [[nodiscard]] Position getDestination() const;
     [[nodiscard]] DroneState::Enum getDroneState() const;

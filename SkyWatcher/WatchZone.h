@@ -18,6 +18,8 @@ private:
     std::vector<std::shared_ptr<Sector>> sectors;
     std::vector<Drone> drones;
     Cerebrum cerebrum;
+    RedisCommunication redisCommunication;
+    TowerClient client;
     std::vector<std::shared_ptr<Sector>> createSectors();
 public:
     WatchZone();

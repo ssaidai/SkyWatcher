@@ -27,18 +27,39 @@ Drone::Drone() : redisClient(RedisCommunication("127.0.0.1", 6379).get_redis_ins
         this->ID = droneID;
     });
 
+    // Start the status update thread
+    std::thread statusUpdateThread(&Drone::statusUpdateThread, this);
+    statusUpdateThread.detach();
+
     // Run this in the listener thread
     redisClient.listen_for_commands([this](const std::string &json) {
         // Execute the command after parsing json message
         //this->executeCMD(command);
     });
 
-    // Run this in the status update thread
-    redisClient.send_status_update("json encoded status");
 }
 
 // Destructor
 Drone::~Drone() = default; // Change implementation if new resources should be manually freed
+
+[[noreturn]] void Drone::statusUpdateThread() {
+    // Send status update to the tower
+    while (true) {
+        // Create a json object with the drone status
+        nlohmann::json status = {
+                {"drone_id", this->ID},
+                {"position", {this->position.x, this->position.y}},
+                {"battery_level", this->batteryLevel},
+                {"state", this->state}
+        };
+
+        // Send the status update
+        this->redisClient.send_status_update(status);
+
+        // Wait for 3 seconds before the next update
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+}
 
 // Receive new path from station
 void Drone::receiveDestination(Position destPoint) {

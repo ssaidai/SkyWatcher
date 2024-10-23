@@ -25,12 +25,13 @@ public:
 // A sector is a 10x10 sub-grid of cells
 class Sector {
 private:
-    int sectorID;
+    int sectorID, assignedDroneID;
     std::vector<std::vector<Cell*>> grid;
-    Position startingPoint;
+    Position startingPoint{};
+
 
 public:
-    Sector(int sectorID, int startX, int startY, std::vector<std::vector<std::shared_ptr<Cell>>>& allCells) {
+    Sector(int sectorID, int startX, int startY, std::vector<std::vector<std::shared_ptr<Cell>>>& allCells) : assignedDroneID(-1) {
         this->sectorID = sectorID;
         this->grid.resize(10, std::vector<Cell*>(10));
         for (int i = 0; i < 10; i++) {
@@ -55,6 +56,18 @@ public:
             // Bottom-right region
             startingPoint = this->grid[0][0]->getCenter();
         }
+    }
+
+    void assignDrone(int droneID) {
+        this->assignedDroneID = droneID;
+    }
+
+    [[nodiscard]] int getSectorID() const {
+        return this->sectorID;
+    }
+
+    [[nodiscard]] int getAssignedDroneID() const {
+        return this->assignedDroneID;
     }
 
     [[nodiscard]] Position getStartingPoint() const {

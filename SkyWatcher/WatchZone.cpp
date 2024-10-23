@@ -9,7 +9,7 @@ std::vector<std::shared_ptr<Sector>> WatchZone::createSectors() {
     auto numRows = static_cast<std::size_t>(std::ceil(this->height / cellSize));
     auto numCols = static_cast<std::size_t>(std::ceil(this->width / cellSize));
 
-    std::vector<std::vector<std::shared_ptr<Cell>>> allCells(numRows, std::vector<std::shared_ptr<Cell>>(numCols));
+    std::vector<std::vector<std::shared_ptr<Cell>>> allCells(numRows, std::vector<std::shared_ptr<Cell>>(numCols)); // Vector not needed use std::array instead
 
     for (int i = 0; i < height / cellSize; i++) {
         for (int j = 0; j < width / cellSize; j++) {
@@ -18,6 +18,7 @@ std::vector<std::shared_ptr<Sector>> WatchZone::createSectors() {
     }
 
     std::vector<std::shared_ptr<Sector>> sectors;
+    sectors.reserve(9000);  // Change this to be dynamic
     int sectorID = 0;
     for (size_t y = 0; y < height; y += sectorSize) {
         for (size_t x = 0; x < width; x += cellsPerSector * cellSize) {
@@ -32,16 +33,15 @@ std::vector<std::shared_ptr<Sector>> WatchZone::createSectors() {
 
 WatchZone::WatchZone()
         : sectors(createSectors()), // Initialize sectors using the new method
-          cerebrum(sectors) // Initialize cerebrum with the newly created sectors
+          cerebrum(sectors), // Initialize cerebrum with the newly created sectors
+          redisCommunication("127.0.0.1", 6379),
+          client(redisCommunication.get_redis_instance(), sectors)
 {
-    // Initialize Redis connection
-    const std::string host = "127.0.0.1"; // TODO: Take this from config file or make it as an input variable
-    const int port = 6379;
-    RedisCommunication redisCommunication(host, port);
-    TowerClient redis(redisCommunication.get_redis_instance());
-
     // Listen for drone connections
-    redis.start_listening_for_drones();
+    client.start_listening_for_drones();
+
+    // Look for disconnected drones
+    client.start_monitoring_drones();
 
     // Send a command to drone with ID "drone_1"
     //// redis.send_command_to_drone("drone_1", "Move to area (10, 20)");

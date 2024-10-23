@@ -11,6 +11,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include "GridDefinitions.h"
 
 using namespace sw::redis;
 
@@ -42,7 +43,7 @@ private:
 // Tower Client (for controlling drones)
 class TowerClient {
 public:
-    explicit TowerClient(const std::shared_ptr<Redis> &redis) : redis(redis), drone_id_counter(0) {}
+    explicit TowerClient(const std::shared_ptr<Redis> &redis, std::vector<std::shared_ptr<Sector>> &s) : redis(redis), drone_id_counter(0), sectors(s){}
 
     // Start a listener thread to handle new drone connections
     void start_listening_for_drones() {
@@ -50,6 +51,13 @@ public:
             this->listen_for_drone_connections();
         });
         listener_thread.detach();
+    }
+
+    void start_monitoring_drones() {
+        std::thread monitor_thread([this]() {
+            this->monitor_drones();
+        });
+        monitor_thread.detach();
     }
 
     // Send a command to a specific drone
@@ -67,6 +75,9 @@ public:
 
 private:
     std::shared_ptr<Redis> redis;
+    std::vector<std::shared_ptr<Sector>> sectors;
+    std::unordered_map<int, std::shared_ptr<Sector>> drone_to_sector_map;
+    std::mutex sectors_mutex;
     std::atomic<int> drone_id_counter;
 
     // Listen for new drone connections on the handshake channel
@@ -91,11 +102,33 @@ private:
         }
     }
 
+    bool isAlive(int droneID){
+        std::string key = "drone:" + std::to_string(droneID) + ":status";
+        auto exists = redis->exists(key);
+        return exists == 1;
+    }
+
+    [[noreturn]] void monitor_drones(){
+        while (true) {
+            for (auto &entry : drone_to_sector_map) {
+                if (!isAlive(entry.first)) {
+                    std::cout << "Drone " << std::to_string(entry.first) << " is not responding. Taking action!" << std::endl;
+                    // Here, you can trigger substitute logic or reassign tasks
+                    std::lock_guard<std::mutex> lock(sectors_mutex);
+                    entry.second->assignDrone(-1);
+                    drone_to_sector_map.erase(entry.first);
+                }
+            }
+            std::this_thread::sleep_for(std::chrono::seconds(5));  // Check every 5 seconds
+        }
+    }
+
     // Initialize the drone by assigning it a unique ID and sending initialization data
     void initialize_drone(const std::string &drone_info_json) {
         // Parse the received drone "hello" message
         auto drone_info = nlohmann::json::parse(drone_info_json);
         std::string drone_uuid = drone_info["drone_uuid"];
+        std::lock_guard<std::mutex> lock(sectors_mutex);
 
         // Assign a unique drone ID
         int new_drone_id = ++drone_id_counter;
@@ -104,6 +137,23 @@ private:
         nlohmann::json init_message = {
                 {"drone_id", new_drone_id}
         };
+
+        // Assign the drone to a sector
+        for (auto &sector : sectors) {
+            if (sector->getAssignedDroneID() == -1){
+                sector->assignDrone(new_drone_id);
+                drone_to_sector_map[new_drone_id] = sector;
+                Position startingPoint = sector->getStartingPoint();
+                init_message = {
+                        {"drone_id", new_drone_id},
+                        {"starting_point", {
+                            {"x", startingPoint.x},
+                            {"y", startingPoint.y}}
+                        }
+                };
+                break;
+            }
+        }
 
         // Send initialization message back to the drone
         std::string drone_channel = "drone:" + drone_uuid + ":init";
@@ -151,7 +201,7 @@ public:
     // Send status update to the tower
     void send_status_update(const nlohmann::json &status) {
         std::string status_key = "drone:" + std::to_string(drone_id) + ":status";
-        redis->set(status_key, status.dump());  // Update status in Redis
+        redis->set(status_key, status.dump(), std::chrono::seconds(3));  // Update status in Redis with a TTL of 3 seconds
         std::cout << "Drone " << drone_id << " status updated: " << status << std::endl;
     }
 

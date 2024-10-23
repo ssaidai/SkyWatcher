@@ -17,6 +17,9 @@ class Cerebrum {
 private:
     std::vector<std::shared_ptr<Sector>> sectors;
     std::vector<std::vector<Position>> regionsTSPPath;
+    std::array<Position, 100> checkPoints;
+
+    void fillCheckPoints();
 public:
     explicit Cerebrum(const std::vector<std::shared_ptr<Sector>> &sectors);
     // TSP solver implementation
