@@ -170,7 +170,7 @@ public:
             : redis(redis), drone_uuid(generate_uuid()) {}
 
     // Send a handshake to the tower to register the drone
-    void connect_to_tower(const std::function<void(const int &)>& callback) {
+    void connect_to_tower(const std::function<void(const int &, const Position &)>& callback) {
         nlohmann::json handshake_message = {
                 {"drone_uuid", drone_uuid}
         };
@@ -217,7 +217,7 @@ private:
     }
 
     // Listen for initialization message from the tower
-    void listen_for_initialization(const std::function<void(const int &)>& callback) {
+    void listen_for_initialization(const std::function<void(const int &, const Position &)>& callback) {
         auto subscriber = redis->subscriber();
         std::string drone_channel = "drone:" + drone_uuid + ":init";
         subscriber.subscribe(drone_channel);
@@ -226,11 +226,12 @@ private:
             // Parse the initialization message
             auto init_message = nlohmann::json::parse(message);
             drone_id = init_message["drone_id"];
+            Position startingPoint = {init_message["starting_point"]["x"], init_message["starting_point"]["y"]};
 
             std::cout << "Drone initialized with ID: " << drone_id << std::endl;
 
             if (callback) {
-                callback(drone_id);
+                callback(drone_id, startingPoint);
             }
         });
 
