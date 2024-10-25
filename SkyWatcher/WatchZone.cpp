@@ -39,9 +39,11 @@ WatchZone::WatchZone()
 {
     // Listen for drone connections
     client.start_listening_for_drones();
+    std::cout << "Listening for drone connections..." << std::endl;
 
     // Look for disconnected drones
     client.start_monitoring_drones();
+    std::cout << "Monitoring drones..." << std::endl;
 
     // Send a command to drone with ID "drone_1"
     //// redis.send_command_to_drone("drone_1", "Move to area (10, 20)");
