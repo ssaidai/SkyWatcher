@@ -1,24 +1,19 @@
 #include "Logger.h"
 #include <iostream>
 #include <ctime>
-#include <chrono>
 #include <iomanip>
 #include <sstream>
 #include <regex>
-#include <map>
-#include <vector>
 #include <algorithm>
 
-Logger::Logger() {
-    // Constructor
-}
-
-Logger::~Logger() {
-    closeLogFiles();
-}
+// Static variables for log files and mutexes
+static std::ofstream commandLogFile;
+static std::ofstream visitLogFile;
+static std::mutex commandLogMutex;
+static std::mutex visitLogMutex;
 
 // Function to get the current time as a formatted string
-std::string Logger::getCurrentTime() {
+std::string getCurrentTime() {
     auto now = std::chrono::system_clock::now();
     auto in_time_t = std::chrono::system_clock::to_time_t(now);
 
@@ -38,7 +33,7 @@ std::string Logger::getCurrentTime() {
 }
 
 // Opens the log files
-void Logger::openLogFiles(const std::string& commandFilename, const std::string& visitFilename) {
+void openLogFiles(const std::string& commandFilename, const std::string& visitFilename) {
     {
         std::lock_guard<std::mutex> lock(commandLogMutex);
         commandLogFile.open(commandFilename, std::ios_base::app); // Open in append mode
@@ -56,7 +51,7 @@ void Logger::openLogFiles(const std::string& commandFilename, const std::string&
 }
 
 // Closes the log files
-void Logger::closeLogFiles() {
+void closeLogFiles() {
     {
         std::lock_guard<std::mutex> lock(commandLogMutex);
         if (commandLogFile.is_open()) {
@@ -72,7 +67,7 @@ void Logger::closeLogFiles() {
 }
 
 // General log function for command logs
-void Logger::log(const std::string& subject, const std::string& type, const std::string& message) {
+void logMessage(const std::string& subject, const std::string& type, const std::string& message) {
     std::lock_guard<std::mutex> lock(commandLogMutex);
     if (commandLogFile.is_open()) {
         commandLogFile << getCurrentTime() << " [" << type << "] " << subject << ": " << message << std::endl;
@@ -82,23 +77,23 @@ void Logger::log(const std::string& subject, const std::string& type, const std:
 }
 
 // Specific logging functions for command logs
-void Logger::logInfo(const std::string& subject, const std::string& message) {
-    log(subject, "INFO", message);
+void logInfo(const std::string& subject, const std::string& message) {
+    logMessage(subject, "INFO", message);
 }
 
-void Logger::logError(const std::string& subject, const std::string& message) {
-    log(subject, "ERROR", message);
+void logError(const std::string& subject, const std::string& message) {
+    logMessage(subject, "ERROR", message);
 }
 
-void Logger::logWarning(const std::string& subject, const std::string& message) {
-    log(subject, "WARNING", message);
+void logWarning(const std::string& subject, const std::string& message) {
+    logMessage(subject, "WARNING", message);
 }
 
-void Logger::logDebug(const std::string& subject, const std::string& message) {
-    log(subject, "DEBUG", message);
+void logDebug(const std::string& subject, const std::string& message) {
+    logMessage(subject, "DEBUG", message);
 }
 
-void Logger::logVisit(const std::string& droneID, double x, double y, double batteryLevel) {
+void logVisit(const std::string& droneID, double x, double y, double batteryLevel) {
     std::lock_guard<std::mutex> lock(visitLogMutex);
     if (visitLogFile.is_open()) {
         // Get the current time as a formatted string
@@ -112,7 +107,7 @@ void Logger::logVisit(const std::string& droneID, double x, double y, double bat
     }
 }
 
-bool Logger::parseVisitLogLine(const std::string& line, std::string& timestamp, std::string& droneID, double& x, double& y, double& batteryLevel) {
+bool parseVisitLogLine(const std::string& line, std::string& timestamp, std::string& droneID, double& x, double& y, double& batteryLevel) {
     // Expected log line format:
     // YYYY-MM-DD HH:MM:SS Drone <DroneID> visited point <x>,<y> battery <batteryLevel>
 
@@ -152,11 +147,10 @@ bool Logger::parseVisitLogLine(const std::string& line, std::string& timestamp, 
     return false;
 }
 
-
-void Logger::parseVisitLogFile(const std::string& visitLogFilename,
-                               std::map<std::pair<int, int>, std::vector<std::chrono::system_clock::time_point>>& cellVisitTimes,
-                               std::chrono::system_clock::time_point& simulationStartTime,
-                               std::chrono::system_clock::time_point& simulationEndTime) {
+void parseVisitLogFile(const std::string& visitLogFilename,
+                       std::map<std::pair<int, int>, std::vector<std::chrono::system_clock::time_point>>& cellVisitTimes,
+                       std::chrono::system_clock::time_point& simulationStartTime,
+                       std::chrono::system_clock::time_point& simulationEndTime) {
     std::ifstream visitLogFile(visitLogFilename);
     if (!visitLogFile.is_open()) {
         std::cerr << "Failed to open visit log file: " << visitLogFilename << std::endl;
@@ -211,16 +205,15 @@ void Logger::parseVisitLogFile(const std::string& visitLogFilename,
     }
 }
 
-
-void Logger::analyzeCellVisits(const std::map<std::pair<int, int>, std::vector<std::chrono::system_clock::time_point>>& cellVisitTimes,
-                               const std::chrono::system_clock::time_point& simulationStartTime,
-                               const std::chrono::system_clock::time_point& simulationEndTime,
-                               const std::chrono::minutes& maxInterval) {
+void analyzeCellVisits(const std::map<std::pair<int, int>, std::vector<std::chrono::system_clock::time_point>>& cellVisitTimes,
+                       const std::chrono::system_clock::time_point& simulationStartTime,
+                       const std::chrono::system_clock::time_point& simulationEndTime,
+                       const std::chrono::minutes& maxInterval) {
     bool allCellsOk = true;
 
     // Iterate over all possible cells in the grid
-    for (int x = 0; x < 4; ++x) {
-        for (int y = 0; y < 4; ++y) {
+    for (int x = 0; x < 20; ++x) {  // Adjusted to 300 to cover the entire grid
+        for (int y = 0; y < 20; ++y) {
             std::pair<int, int> cellCoord = std::make_pair(x, y);
             auto it = cellVisitTimes.find(cellCoord);
 
@@ -235,8 +228,8 @@ void Logger::analyzeCellVisits(const std::map<std::pair<int, int>, std::vector<s
                 auto interval = std::chrono::duration_cast<std::chrono::minutes>(visits.front() - simulationStartTime);
                 if (interval >= maxInterval) {
                     allCellsOk = false;
-                    std::cout << "Cell (" << x << ", " << y << ") was not visited in " << maxInterval.count() << " minutes." << std::endl;
-                    std::cout << "Visited at time: " << Logger::formatTimePoint(visits.front()) << ", last time visited at simulation start." << std::endl;
+                    std::cout << "Cell (" << x << ", " << y << ") was not visited within the first " << maxInterval.count() << " minutes." << std::endl;
+                    std::cout << "First visit at time: " << formatTimePoint(visits.front()) << std::endl;
                 }
 
                 // Check intervals between visits
@@ -244,8 +237,7 @@ void Logger::analyzeCellVisits(const std::map<std::pair<int, int>, std::vector<s
                     interval = std::chrono::duration_cast<std::chrono::minutes>(visits[i] - visits[i - 1]);
                     if (interval >= maxInterval) {
                         allCellsOk = false;
-                        std::cout << "Cell (" << x << ", " << y << ") was not visited in " << maxInterval.count() << " minutes." << std::endl;
-                        std::cout << "Visited at time: " << Logger::formatTimePoint(visits[i]) << ", last time visited at " << Logger::formatTimePoint(visits[i - 1]) << "." << std::endl;
+                        std::cout << "Cell (" << x << ", " << y << ") was not visited for " << interval.count() << " minutes between " << formatTimePoint(visits[i - 1]) << " and " << formatTimePoint(visits[i]) << "." << std::endl;
                     }
                 }
 
@@ -253,8 +245,8 @@ void Logger::analyzeCellVisits(const std::map<std::pair<int, int>, std::vector<s
                 interval = std::chrono::duration_cast<std::chrono::minutes>(simulationEndTime - visits.back());
                 if (interval >= maxInterval) {
                     allCellsOk = false;
-                    std::cout << "Cell (" << x << ", " << y << ") was not visited in " << maxInterval.count() << " minutes before simulation end." << std::endl;
-                    std::cout << "Last visit at: " << Logger::formatTimePoint(visits.back()) << std::endl;
+                    std::cout << "Cell (" << x << ", " << y << ") was not visited in the last " << maxInterval.count() << " minutes before simulation end." << std::endl;
+                    std::cout << "Last visit at: " << formatTimePoint(visits.back()) << std::endl;
                 }
             }
         }
@@ -265,34 +257,10 @@ void Logger::analyzeCellVisits(const std::map<std::pair<int, int>, std::vector<s
     }
 }
 
-std::string Logger::formatTimePoint(const std::chrono::system_clock::time_point& timePoint) {
+std::string formatTimePoint(const std::chrono::system_clock::time_point& timePoint) {
     std::time_t timeT = std::chrono::system_clock::to_time_t(timePoint);
     std::tm tm = *std::localtime(&timeT);
     char buffer[20];
     std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &tm);
     return buffer;
 }
-
-
-/**
-// Function to check the battery level of the drone
-void checkBatteryLevel(const std::string& droneID, double batteryLevel) {
-    if (batteryLevel <= 0.0) {
-        Logger::logError(droneID, "Battery level is critically low or depleted.");
-    } else if (batteryLevel <= 20.0) {
-        Logger::logWarning(droneID, "Battery level is low.");
-    } else {
-        Logger::logInfo(droneID, "Battery level is sufficient.");
-    }
-}
-
-// Function to check if the drone is within the designated area
-void checkDronePosition(const std::string& droneID, double x, double y) {
-    const double areaBoundary = 3000.0; // Since the area is 6000x6000 meters centered at (0,0)
-    if (x < -areaBoundary || x > areaBoundary || y < -areaBoundary || y > areaBoundary) {
-        Logger::logError(droneID, "Drone is exiting the designated area.");
-    } else {
-        Logger::logInfo(droneID, "Drone is within the designated area.");
-    }
-}
-*/
