@@ -16,7 +16,7 @@ public:
     // Custom constructor
     Cell(float l, float r, float t, float b) : left(l), right(r), top(t), bottom(b), center({(left + right) / 2, (top + bottom) / 2}) {}
 
-    Position getCenter() const {
+    [[nodiscard]] Position getCenter() const {
         return center;
     }
 };
@@ -28,7 +28,7 @@ private:
     int sectorID, assignedDroneID;
     std::vector<std::vector<Cell*>> grid;
     Position startingPoint{};
-
+    std::array<Position, 100> waypoints{};
 
 public:
     Sector(int sectorID, int startX, int startY, std::vector<std::vector<std::shared_ptr<Cell>>>& allCells) : assignedDroneID(-1) {
@@ -37,6 +37,7 @@ public:
         for (int i = 0; i < 10; i++) {
             for (int j = 0; j < 10; j++) {
                 this->grid[i][j] = allCells[startY + i][startX + j].get();
+                waypoints[i * 10 + j] = this->grid[i][j]->getCenter();
             }
         }
         // Set the starting point based on the sector's position (starting point should be the center of the closest cell to the center of the area)
@@ -60,6 +61,10 @@ public:
 
     void assignDrone(int droneID) {
         this->assignedDroneID = droneID;
+    }
+
+    [[nodiscard]] const std::array<Position, 100>& getWaypoints() const {
+        return waypoints;
     }
 
     [[nodiscard]] int getSectorID() const {
