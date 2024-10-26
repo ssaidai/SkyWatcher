@@ -8,14 +8,13 @@
 
 class Drone {
 private:
-    Position position = {3000.0, 3000.0};    // Current position
+    Position position;                              // Current position
+    Position towerPosition;                         // Tower position
     DroneState::Enum state;                         // Current drone state
-    std::unique_ptr<Path> currentPath;              // Current path
     DroneClient redisClient;                        // Redis client
 
     int ID;                                 // Drone's ID (assigned once connected to the tower)
     double batteryLevel;                    // Current battery level
-    double criticalBatteryLevel;            // When the next drone should be called
     double  consumptionRatio;               // Drone's battery consumption rate
     static const double consumptionRate;    // batteryConsumption/s
     static const double speed;              // Speed in m/s
@@ -29,24 +28,24 @@ public:
     ~Drone();   // Drone destructor
 
     // Drone function
-    void consumption();                                       // Battery consumption
-    void recharge();                                          // Recharge battery
-    void changeState(DroneState::Enum state);                 // Change Drone's state
-    void changeConsumptionRatio(double ratio);                // Change Drone's consumptionRate
-    void receiveDestination(Position destPoint);              // Receive new destination
-    void arrive();                                            // Move to the destination
-    void monitor();                                           // Monitor the assigned sector
-    void back();                                              // Move back
+    void consumption();                                                           // Battery consumption
+    void recharge();                                                             // Recharge battery
+    void changeState(DroneState::Enum newState);                                // Change Drone's state
+    void changeConsumptionRatio(double ratio);                                 // Change Drone's consumptionRate
+
+    void move(Position dest, float travelTime);                               // Move toward dest
+    void receiveDestination(Position destPoint, int sleepTime,               // Receive new destination
+        std::array<Position, 100> waypoints, bool init);
 
     // Threads
+    void batteryUpdateThread();                                             // Update drone's battery on redis
     [[noreturn]] void statusUpdateThread();                                // Update drone's status on redis
 
     [[nodiscard]] Position getPosition() const;
     [[nodiscard]] Position getDestination() const;
     [[nodiscard]] DroneState::Enum getDroneState() const;
 
-    [[nodiscard]] bool isBatteryCritical() const;
-    [[nodiscard]] bool isBatteryLow() const;
+    [[nodiscard]] int getCycleIteration(int sleepTime);
     [[nodiscard]] double getBatteryLevel() const;
     [[nodiscard]] int getID() const;
 

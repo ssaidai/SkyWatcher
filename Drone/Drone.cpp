@@ -11,112 +11,108 @@
 const double Drone::flightAutonomy = 30;
 const double Drone::rechargeTimeMin = 2;
 const double Drone::rechargeTimeMax = 3;
-const double Drone::speed = 30 / 3.6;       // 30km/h in m/s
+const double Drone::speed = 30.0 / 3.6;       // 30km/h in m/s
 const double Drone::visibilityRange = 10;
-const double Drone::consumptionRate = 100.0 / (flightAutonomy * 60.0); // consumptionRate/second
+const double Drone::consumptionRate = 100.0 / (flightAutonomy * 60.0);  // consumptionRate/second
+constexpr float cellTravelTime = 20.0 / (30.0 / 3.6);
+
+
+// Destructor
+Drone::~Drone() = default; // Change implementation if new resources should be manually freed
 
 // Constructor
 Drone::Drone() : redisClient(RedisCommunication("127.0.0.1", 6379).get_redis_instance()) {
     this->batteryLevel = 100; // Initialize battery level at maximum
     this->state = DroneState::Ready;
-    this->criticalBatteryLevel = 0.0;
     this->consumptionRatio = 1.0;
 
     // Initialize connection to tower
     redisClient.connect_to_tower([this](nlohmann::json init_message) {  // Lambda function to assign droneID, could be a member function
+        // Init_message parse
         this->ID = init_message["drone_id"];
-        this->position = {init_message["position"][0], init_message["position"][1]};
+        this->towerPosition = {init_message["tower_position"][0], init_message["tower_position"][1]};
+        this->position = this->towerPosition;
+        Position startPoint = {init_message["starting_point"][0], init_message["starting_point"][1]};
+        int sleepTime = init_message["sleep_time"];
+
+        std::array<Position, 100> foo{}; // TODO: TO BE IMPLEMENTED
+
+        // Initialize operation
+        this->receiveDestination(startPoint, sleepTime, foo, true);
     });
 
     // Start the status update thread
     std::thread statusUpdateThread(&Drone::statusUpdateThread, this);
     statusUpdateThread.detach();
 
+    std::thread batteryUpdateThread(&Drone::batteryUpdateThread, this);
+    batteryUpdateThread.detach();
+
     // Run this in the listener thread
     redisClient.listen_for_commands([this](const std::string &command) {
-        // Execute the command after parsing json message
-        //this->executeCMD(command);
+        if (command == "recallAll") {
+            this->changeState(DroneState::Returning);
+        }
     });
 
 }
 
-// Destructor
-Drone::~Drone() = default; // Change implementation if new resources should be manually freed
 
-[[noreturn]] void Drone::statusUpdateThread() {
-    // Send status update to the tower
-    while (true) {
-        // Create a json object with the drone status
-        nlohmann::json status = {
-                {"drone_id", this->ID},
-                {"position", {this->position.x, this->position.y}},
-                {"battery_level", this->batteryLevel},
-                {"state", this->state}
-        };
 
-        // Send the status update
-        this->redisClient.send_status_update(status);
-
-        // Wait for 3 seconds before the next update
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
-}
-
-// Receive new path from station
-void Drone::receiveDestination(Position destPoint) {
+// Receive new path from the tower
+// init=true if it's called from the constructor, else init=false
+void Drone::receiveDestination(Position startPoint, int sleepTime,
+    std::array<Position, 100> waypoints, bool init=false) {
     if (this->state == DroneState::Ready) {
         // Initialize Path's params
-        Position startPoint = {this->position.x, this->position.y};
-        double distance = utils::calculateDistance(startPoint, destPoint);
+        double distance = utils::calculateDistance(this->position, startPoint);
         float travelTime = utils::calculateTime(distance, Drone::speed);
-        std::array<Position, 100> foo{}; // TODO: TO BE IMPLEMENTED
 
-        // Assign a new path to the drone
-        this->currentPath = std::make_unique<Path>(startPoint, destPoint, foo, distance,  travelTime);
 
-        // Assign new critical battery level
-        this->criticalBatteryLevel = utils::getCriticalBatteryLevel(travelTime, Drone::flightAutonomy);
+        // Drone Arriving
+        this->changeState(DroneState::Arriving);
+        this->move(startPoint, travelTime);
 
-        // Drone should depart
-        this->state = DroneState::Arriving;
+
+        // Drone Waiting
+        if (init) {
+            this->changeState(DroneState::Waiting);
+            this->changeConsumptionRatio(0.5);
+            // TODO: listen for broadcast
+            this->changeConsumptionRatio(1.0);
+        }
+
+
+        // Drone monitoring
+        this->changeState(DroneState::Monitoring);
+        int cycleIteration = this->getCycleIteration(sleepTime);
+        for(int i = 0; i < cycleIteration; i++) {
+            // The drone is going through every cell waypoint following the TSP-CPP algorithm
+            for (auto waypoint: waypoints) {
+                // Wait for the drone reaching the assigned sector
+                std::this_thread::sleep_for(std::chrono::duration<float>(Path::cellTravelTime));
+                this->position = waypoint;
+            }
+        }
+
+        // Drone Returning
+        this->changeState(DroneState::Returning);
+        this->move(this->towerPosition, travelTime);
+
+        // Drone Charging
+        this->changeState(DroneState::Charging);
+        this->recharge();
+
+        // TODO: disconnect from reddis
     }
 }
 
-// Simulate drone's movement toward the assigned sector
-void Drone::arrive() {
-    // Wait for the drone reaching the assigned sector
-    std::this_thread::sleep_for(std::chrono::duration<double>(this->currentPath->travelTime));
-    this->position = this->currentPath->destPoint;
+// Simulate drone's movement toward an assigned destination
+void Drone::move(Position dest, float travelTime) {
+    // Wait for the drone reaching the destination
+    std::this_thread::sleep_for(std::chrono::duration<double>(travelTime));
+    this->position = dest;
 
-    // Change drone's state
-    this->changeState(DroneState::Waiting);
-    // TODO: this->changeConsumptionRatio();
-}
-
-// Simulate drone movement
-void Drone::monitor() {
-    // The drone is going through every cell waypoint following the TSP-CPP algorithm
-    for (auto waypoint: this->currentPath->waypoints) {
-        // We need the travel time between the current cell and the next one TODO: travel time should be constant
-        double cellDistance = utils::calculateDistance(this->position, waypoint);
-        float cellTravelTime = utils::calculateTime(cellDistance, Drone::speed);
-
-
-        // Wait for the drone reaching the assigned sector
-        std::this_thread::sleep_for(std::chrono::duration<double>(cellTravelTime));
-        this->position = waypoint;
-    }
-}
-
-// Simulate drone return
-void Drone::back(){
-    // Wait for the drone to return
-    this->changeState(DroneState::Returning);
-    std::this_thread::sleep_for(std::chrono::duration<double>(this->currentPath->travelTime));
-    this->position = this->currentPath->startPoint;
-
-    // Change drone's state
-    this->changeState(DroneState::Charging);
 }
 
 // Simulate drone battery consumption
@@ -177,27 +173,44 @@ void Drone::changeConsumptionRatio(double ratio) {
     this->consumptionRatio = ratio;
 }
 
-// Check if drone battery is critical
-bool Drone::isBatteryCritical() const {
-    // Battery is critical when the subsequent drone should be called (1% tolerance)
-    return this->batteryLevel <= this->criticalBatteryLevel + 1;
+[[noreturn]] void Drone::statusUpdateThread() {
+    // Send status update to the tower
+    while (true) {
+        // Create a json object with the drone status
+        nlohmann::json status = {
+            {"drone_id", this->ID},
+            {"position", {this->position.x, this->position.y}},
+            {"battery_level", this->batteryLevel},
+            {"state", this->state}
+        };
+
+        // Send the status update
+        this->redisClient.send_status_update(status);
+
+        // Wait for 3 seconds before the next update
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
 }
 
-// Check if drone battery is low
-bool Drone::isBatteryLow() const {
-    // Battery is low when the drone can't afford one more cycle and should return (1% tolerance)
-    return this->batteryLevel <= this->criticalBatteryLevel + utils::calculateDeviation(this->currentPath->travelTime,
-                                                                                        Drone::flightAutonomy) + 1;
+// Drone's battery thread implementation
+void Drone::batteryUpdateThread() {
+    while (this->getDroneState() != DroneState::Offline && this->getDroneState() != DroneState::Charging) {
+        // Battery consumption
+        this->consumption();
+
+        // Wait a secondo before the next consumption
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+}
+
+int Drone::getCycleIteration(int sleepTime) {
+    int cycleTime = 240; // TODO: 240?
+    return sleepTime / cycleTime;
 }
 
 // Get current drone position
 Position Drone::getPosition() const {
     return this->position;
-}
-
-// Get current drone destination
-Position Drone::getDestination() const {
-    return this->currentPath->destPoint;
 }
 
 // Get current battery level
