@@ -10,7 +10,6 @@ namespace utils {
     double getCriticalBatteryLevel(double travelTime, double flightAutonomy); // Calculate the relative battery level when the subsequent drone should be called
     double calculateDeviation(double travelTime, double flightAutonomy); // Calculate the deviation from critical battery level
     float calculateTime (double distance, double speed); // Calculate the time needed to travel in seconds
-    std::string statusToJSON(Drone& drone); // return a JSON containing the drone's status
 }
 
 #endif //SKYWATCHER_UTILS_H

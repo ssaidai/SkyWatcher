@@ -2,6 +2,7 @@
 #define SKYWATCHER_GRIDDEFINITIONS_H
 
 #include <vector>
+#include <Utils/utils.h>
 #include "Structs.h"
 
 class Cell {
@@ -29,9 +30,11 @@ private:
     std::vector<std::vector<Cell*>> grid;
     Position startingPoint{};
     std::array<Position, 100> waypoints{};
+    double distance;
+    int timer;
 
 public:
-    Sector(int sectorID, int startX, int startY, std::vector<std::vector<std::shared_ptr<Cell>>>& allCells) : assignedDroneID(-1) {
+    Sector(int sectorID, int startX, int startY, const std::vector<std::vector<std::shared_ptr<Cell>>>& allCells) : assignedDroneID(-1) {
         this->sectorID = sectorID;
         this->grid.resize(10, std::vector<Cell*>(10));
         for (int i = 0; i < 10; i++) {
@@ -57,10 +60,23 @@ public:
             // Bottom-right region
             startingPoint = this->grid[0][0]->getCenter();
         }
+
+        // Calculate travelTime
+        distance = utils::calculateDistance(Position{3000,3000}, startingPoint);
+        int travelTime = static_cast<int>(utils::calculateTime(distance, 30 / 3.6));
+
+        int temp = 1800 - 2 * travelTime;
+
+        // Calculate the time after which the tower should send a new drone to this sector
+        timer = temp - static_cast<int>(std::fmod(temp, 240));
     }
 
     void assignDrone(int droneID) {
         this->assignedDroneID = droneID;
+    }
+
+    [[nodiscard]] int getTimer() const {
+        return timer;
     }
 
     [[nodiscard]] const std::array<Position, 100>& getWaypoints() const {

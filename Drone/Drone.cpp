@@ -13,7 +13,7 @@ const double Drone::rechargeTimeMin = 2;
 const double Drone::rechargeTimeMax = 3;
 const double Drone::speed = 30 / 3.6;       // 30km/h in m/s
 const double Drone::visibilityRange = 10;
-const double Drone::consumptionRate = 100.0 / (Drone::flightAutonomy * 60.0); // consumptionRate/second
+const double Drone::consumptionRate = 100.0 / (flightAutonomy * 60.0); // consumptionRate/second
 
 // Constructor
 Drone::Drone() : redisClient(RedisCommunication("127.0.0.1", 6379).get_redis_instance()) {

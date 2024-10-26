@@ -144,7 +144,7 @@ private:
         };
 
         // Assign the drone to a sector
-        for (auto &sector : sectors) {
+        for (const auto &sector : sectors) {
             if (sector->getAssignedDroneID() == -1){
                 sector->assignDrone(new_drone_id);
                 drone_to_sector_map[new_drone_id] = sector;
@@ -158,7 +158,8 @@ private:
                         {"starting_point", {
                             {"x", startingPoint.x},
                             {"y", startingPoint.y}}
-                        }
+                        },
+                        {"timer", sector->getTimer()}
                 };
                 break;
             }
@@ -194,6 +195,16 @@ public:
         redis->publish("drone:handshake", handshake_message.dump());
 
         init_listener_thread.join();  // Wait for initialization to complete
+    }
+
+    // Start sleeping thread
+    void start_sleeping_thread(const nlohmann::json& message, int seconds) const
+    {
+        std::thread sleeping_thread([this, message, seconds]() {
+            std::this_thread::sleep_for(std::chrono::seconds(seconds));
+            redis->publish("drone:go_next", message.dump());
+        });
+        sleeping_thread.detach();
     }
 
     // Start listening for commands after initialization
