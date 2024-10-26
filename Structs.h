@@ -1,6 +1,7 @@
 #ifndef SKYWATCHER_STRUCTS_H
 #define SKYWATCHER_STRUCTS_H
 
+#include <array>
 
 struct Position {
     double x;

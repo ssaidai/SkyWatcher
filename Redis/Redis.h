@@ -18,7 +18,7 @@ using namespace sw::redis;
 // Core Redis communication class (establishes a connection to Redis)
 class RedisCommunication {
 public:
-    RedisCommunication(const std::string &host, int port) {
+    RedisCommunication(const std::string &host, const int port) {
         ConnectionOptions connection_options;
         connection_options.host = host;  // Redis host
         connection_options.port = port;  // Redis port
@@ -102,7 +102,8 @@ private:
         }
     }
 
-    bool isAlive(int droneID){
+    bool isAlive(int droneID) const
+    {
         std::string key = "drone:" + std::to_string(droneID) + ":status";
         auto exists = redis->exists(key);
         return exists == 1;
@@ -135,7 +136,11 @@ private:
 
         // Create an initialization message with the assigned ID and an area to monitor
         nlohmann::json init_message = {
-                {"drone_id", new_drone_id}
+                {"drone_id", new_drone_id},
+                {"tower_position", {
+                    {"x", 3000},
+                    {"y", 3000}}
+                }
         };
 
         // Assign the drone to a sector
@@ -146,6 +151,10 @@ private:
                 Position startingPoint = sector->getStartingPoint();
                 init_message = {
                         {"drone_id", new_drone_id},
+                        {"tower_position", {
+                            {"x", 3000},
+                            {"y", 3000}}
+                        },
                         {"starting_point", {
                             {"x", startingPoint.x},
                             {"y", startingPoint.y}}
@@ -170,7 +179,13 @@ public:
             : redis(redis), drone_uuid(generate_uuid()) {}
 
     // Send a handshake to the tower to register the drone
-    void connect_to_tower(const std::function<void(const int &)>& callback) {
+    void connect_to_tower(const std::function<void(const nlohmann::json &)>& callback) {
+        // Listen for initialization message from the tower
+        std::thread init_listener_thread([this, callback]() {
+            this->listen_for_initialization(callback);
+        });
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));  // Wait for the listener to start
+
         nlohmann::json handshake_message = {
                 {"drone_uuid", drone_uuid}
         };
@@ -178,15 +193,12 @@ public:
         // Publish a handshake message to the tower
         redis->publish("drone:handshake", handshake_message.dump());
 
-        // Listen for initialization message from the tower
-        std::thread init_listener_thread([this, callback]() {
-            this->listen_for_initialization(callback);
-        });
         init_listener_thread.join();  // Wait for initialization to complete
     }
 
     // Start listening for commands after initialization
-    [[noreturn]] void listen_for_commands(const std::function<void(const std::string &)> &callback) {
+    [[noreturn]] void listen_for_commands(const std::function<void(const std::string &)> &callback) const
+    {
         std::string drone_command_key = "drone:" + std::to_string(drone_id) + ":commands";
 
         while (true) {
@@ -199,7 +211,8 @@ public:
     }
 
     // Send status update to the tower
-    void send_status_update(const nlohmann::json &status) {
+    void send_status_update(const nlohmann::json &status) const
+    {
         std::string status_key = "drone:" + std::to_string(drone_id) + ":status";
         redis->set(status_key, status.dump(), std::chrono::seconds(3));  // Update status in Redis with a TTL of 3 seconds
         std::cout << "Drone " << drone_id << " status updated: " << status << std::endl;
@@ -217,7 +230,7 @@ private:
     }
 
     // Listen for initialization message from the tower
-    void listen_for_initialization(const std::function<void(const int &)>& callback) {
+    void listen_for_initialization(const std::function<void(const nlohmann::json &)>& callback) {
         auto subscriber = redis->subscriber();
         std::string drone_channel = "drone:" + drone_uuid + ":init";
         subscriber.subscribe(drone_channel);
@@ -230,7 +243,7 @@ private:
             std::cout << "Drone initialized with ID: " << drone_id << std::endl;
 
             if (callback) {
-                callback(drone_id);
+                callback(init_message);
             }
         });
 

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(drone_monitor)
+project(SkyWatcher)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,7 +12,7 @@ include_directories(
 )
 
 # Add source files
-add_executable(drone_monitor
+add_executable(SkyWatcher
         SkyWatcher/Cerebrum.cpp
         Drone/Drone.cpp
         SkyWatcher/SkyWatcher.cpp
@@ -29,7 +29,7 @@ find_library(REDIS_PLUS_PLUS_LIBRARY redis++ REQUIRED)
 find_library(HIREDIS_LIBRARY hiredis REQUIRED)
 
 # Link libraries
-target_link_libraries(drone_monitor PRIVATE
+target_link_libraries(SkyWatcher PRIVATE
         ortools::ortools
         ${Protobuf_LIBRARIES}
         sfml-graphics
