@@ -1,4 +1,4 @@
-#include "../Utils/Logger.h"
+#include "Logger.h"  // Adjusted include to use the updated Logger header
 #include <map>
 #include <vector>
 #include <chrono>
@@ -13,8 +13,8 @@ int main() {
     std::chrono::system_clock::time_point simulationStartTime = std::chrono::system_clock::time_point::min();
     std::chrono::system_clock::time_point simulationEndTime = std::chrono::system_clock::time_point::min();
 
-    // Parse the visit log file
-    Logger::parseVisitLogFile(visitLogFilename, cellVisitTimes, simulationStartTime, simulationEndTime);
+    // Parse the visit log file using the free function
+    parseVisitLogFile(visitLogFilename, cellVisitTimes, simulationStartTime, simulationEndTime);
 
     if (simulationStartTime == std::chrono::system_clock::time_point::min() ||
         simulationEndTime == std::chrono::system_clock::time_point::min()) {
@@ -22,8 +22,8 @@ int main() {
         return 1;
     }
 
-    // Analyze the cell visits
-    Logger::analyzeCellVisits(cellVisitTimes, simulationStartTime, simulationEndTime, maxInterval);
+    // Analyze the cell visits using the free function
+    analyzeCellVisits(cellVisitTimes, simulationStartTime, simulationEndTime, maxInterval);
 
     return 0;
 }
