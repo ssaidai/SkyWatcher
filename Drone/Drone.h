@@ -1,7 +1,6 @@
 #ifndef SKYWATCHER_DRONE_H
 #define SKYWATCHER_DRONE_H
 
-#include <random>
 #include <memory>
 #include "../Structs.h"
 #include "../Redis/Redis.h"
@@ -32,7 +31,7 @@ public:
     // Drone function
     void consumption();                                       // Battery consumption
     void recharge();                                          // Recharge battery
-    void changeState(DroneState::Enum state);                 // Change Drone' state
+    void changeState(DroneState::Enum state);                 // Change Drone's state
     void changeConsumptionRatio(double ratio);                // Change Drone's consumptionRate
     void receiveDestination(Position destPoint);              // Receive new destination
     void arrive();                                            // Move to the destination

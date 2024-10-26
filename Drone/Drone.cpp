@@ -13,7 +13,7 @@ const double Drone::rechargeTimeMin = 2;
 const double Drone::rechargeTimeMax = 3;
 const double Drone::speed = 30 / 3.6;       // 30km/h in m/s
 const double Drone::visibilityRange = 10;
-const double Drone::consumptionRate = 100.0 / (Drone::flightAutonomy * 60.0); // consumptionRate/second
+const double Drone::consumptionRate = 100.0 / (flightAutonomy * 60.0); // consumptionRate/second
 
 // Constructor
 Drone::Drone() : redisClient(RedisCommunication("127.0.0.1", 6379).get_redis_instance()) {
@@ -23,8 +23,9 @@ Drone::Drone() : redisClient(RedisCommunication("127.0.0.1", 6379).get_redis_ins
     this->consumptionRatio = 1.0;
 
     // Initialize connection to tower
-    redisClient.connect_to_tower([this](int droneID) {  // Lambda function to assign droneID, could be a member function
-        this->ID = droneID;
+    redisClient.connect_to_tower([this](nlohmann::json init_message) {  // Lambda function to assign droneID, could be a member function
+        this->ID = init_message["drone_id"];
+        this->position = {init_message["position"][0], init_message["position"][1]};
     });
 
     // Start the status update thread
@@ -32,7 +33,7 @@ Drone::Drone() : redisClient(RedisCommunication("127.0.0.1", 6379).get_redis_ins
     statusUpdateThread.detach();
 
     // Run this in the listener thread
-    redisClient.listen_for_commands([this](const std::string &json) {
+    redisClient.listen_for_commands([this](const std::string &command) {
         // Execute the command after parsing json message
         //this->executeCMD(command);
     });

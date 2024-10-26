@@ -10,16 +10,11 @@ double utils::calculateDistance (Position startPoint, Position destPoint) {
 
 // Calculate the time needed to travel given the distance and the speed
 float utils::calculateTime (double distance, double speed) {
-    return static_cast<float>(distance * speed);
+    return static_cast<float>(distance / speed);
 }
 
 // Get the percentage of battery when the next drone should be called
 double utils::getCriticalBatteryLevel(double travelTime, const double flightAutonomy) {
     double deviation = calculateDeviation(travelTime, flightAutonomy);
     return (2 * (travelTime / flightAutonomy * 100.0)) + deviation;
-}
-
-// Calculate the deviation from critical battery level
-double utils::calculateDeviation(double travelTime, double flightAutonomy) {
-    return std::fmod(100.0 - (2 * (travelTime / flightAutonomy * 100.0)), 14.0);
 }

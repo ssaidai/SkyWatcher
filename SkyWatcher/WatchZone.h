@@ -2,9 +2,6 @@
 #define SKYWATCHER_WATCHZONE_H
 
 #include <vector>
-#include <iostream>
-#include <cmath>
-#include <limits>
 #include "Drone/Drone.h"
 #include "GridDefinitions.h"
 #include "Cerebrum.h"
