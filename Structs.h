@@ -19,19 +19,6 @@ struct Position {
     }
 };
 
-struct Path {
-    Position startPoint; // Starting point
-
-    std::array<Position, 100> waypoints; // Cell visit order according to the TCP-CPP
-    const double distance; // Distance
-    const float travelTime; // Time needed to reach destination of the current path
-
-
-    // Constructor
-    Path(const Position& start, const std::array<Position, 100>& wp, double dist, float time)
-            : startPoint(start), waypoints(wp), distance(dist), travelTime(time) {}
-};
-
 struct DroneState {
     enum Enum {
         Ready, // Drone is ready to operate
