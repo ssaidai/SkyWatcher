@@ -12,6 +12,7 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include "GridDefinitions.h"
+#include "Utils/Logger.h"
 
 using namespace sw::redis;
 
@@ -226,6 +227,17 @@ public:
         std::string status_key = "drone:" + std::to_string(drone_id) + ":status";
         redis->set(status_key, status.dump(), std::chrono::seconds(3));  // Update status in Redis with a TTL of 3 seconds
         std::cout << "Drone " << drone_id << " status updated: " << status << std::endl;
+
+        // Also append the status to a central Redis Stream
+        std::string stream_key = "status_logs";
+        nlohmann::json status_log = status;
+        status_log["timestamp"] = getCurrentTime();  // Include a timestamp
+
+        // Prepare fields for xadd
+        std::vector<std::pair<std::string, std::string>> fields = {{"status", status_log.dump()}};
+
+        // Add the status update to the central stream
+        redis->xadd(stream_key, "*", fields.begin(), fields.end());
     }
 
 private:
