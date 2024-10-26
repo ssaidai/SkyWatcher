@@ -2,8 +2,7 @@
 #define SKYWATCHER_GRIDDEFINITIONS_H
 
 #include <vector>
-#include <Utils/utils.h>
-#include "Structs.h"
+#include "Utils/utils.h"
 
 class Cell {
 private:

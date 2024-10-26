@@ -90,7 +90,7 @@ void Drone::receiveDestination(Position startPoint, int sleepTime,
             // The drone is going through every cell waypoint following the TSP-CPP algorithm
             for (auto waypoint: waypoints) {
                 // Wait for the drone reaching the assigned sector
-                std::this_thread::sleep_for(std::chrono::duration<float>(Path::cellTravelTime));
+                std::this_thread::sleep_for(std::chrono::duration<float>(cellTravelTime));
                 this->position = waypoint;
             }
         }

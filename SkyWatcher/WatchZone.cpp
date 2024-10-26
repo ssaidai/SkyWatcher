@@ -9,7 +9,7 @@ std::vector<std::shared_ptr<Sector>> WatchZone::createSectors() {
     auto numRows = static_cast<std::size_t>(std::ceil(this->height / cellSize));
     auto numCols = static_cast<std::size_t>(std::ceil(this->width / cellSize));
 
-    std::vector<std::vector<std::shared_ptr<Cell>>> allCells(numRows, std::vector<std::shared_ptr<Cell>>(numCols)); // Vector not needed use std::array instead
+    std::vector allCells(numRows, std::vector<std::shared_ptr<Cell>>(numCols)); // Vector not needed use std::array instead
 
     for (int i = 0; i < height / cellSize; i++) {
         for (int j = 0; j < width / cellSize; j++) {

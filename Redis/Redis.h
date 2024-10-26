@@ -115,7 +115,7 @@ private:
                 if (!isAlive(entry.first)) {
                     std::cout << "Drone " << std::to_string(entry.first) << " is not responding. Taking action!" << std::endl;
                     // Here, you can trigger substitute logic or reassign tasks
-                    std::lock_guard<std::mutex> lock(sectors_mutex);
+                    std::lock_guard lock(sectors_mutex);
                     entry.second->assignDrone(-1);
                     drone_to_sector_map.erase(entry.first);
                 }
@@ -129,7 +129,7 @@ private:
         // Parse the received drone "hello" message
         auto drone_info = nlohmann::json::parse(drone_info_json);
         std::string drone_uuid = drone_info["drone_uuid"];
-        std::lock_guard<std::mutex> lock(sectors_mutex);
+        std::lock_guard lock(sectors_mutex);
 
         // Assign a unique drone ID
         int new_drone_id = ++drone_id_counter;
@@ -210,11 +210,10 @@ public:
     // Start listening for commands after initialization
     [[noreturn]] void listen_for_commands(const std::function<void(const std::string &)> &callback) const
     {
-        std::string drone_command_key = "drone:" + std::to_string(drone_id) + ":commands";
+        const std::string drone_command_key = "drone:" + std::to_string(drone_id) + ":commands";
 
         while (true) {
-            auto command = redis->blpop(drone_command_key, 0);  // Blocking pop (wait for a command)
-            if (command) {
+            if (const auto command = redis->blpop(drone_command_key, 0)) {
                 std::string cmd = command->second;
                 callback(cmd);  // Execute the callback with the received command
             }

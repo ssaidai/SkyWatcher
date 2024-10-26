@@ -1,6 +1,5 @@
 #include "utils.h"
 #include "cmath"
-#include <string>
 #include "Drone/Drone.h"
 
 // Calculate the distance between two points
@@ -11,10 +10,4 @@ double utils::calculateDistance (Position startPoint, Position destPoint) {
 // Calculate the time needed to travel given the distance and the speed
 float utils::calculateTime (double distance, double speed) {
     return static_cast<float>(distance / speed);
-}
-
-// Get the percentage of battery when the next drone should be called
-double utils::getCriticalBatteryLevel(double travelTime, const double flightAutonomy) {
-    double deviation = calculateDeviation(travelTime, flightAutonomy);
-    return (2 * (travelTime / flightAutonomy * 100.0)) + deviation;
 }

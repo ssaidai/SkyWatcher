@@ -3,7 +3,6 @@
 
 #include <vector>
 #include "Drone/Drone.h"
-#include "GridDefinitions.h"
 #include "Cerebrum.h"
 #include "Redis/Redis.h"
 
