@@ -106,7 +106,11 @@ public:
     }
 
     void setTSP(const std::array<Position, 100>& path) {
-        this->path = path;
+        Position offset = this->startingPoint;
+        std::transform(path.begin(), path.end(), this->path.begin(),
+                   [offset](const Position& pos) {
+                       return pos + offset;
+                   });
     }
 
     [[nodiscard]] int getSectorID() const {
