@@ -10,4 +10,4 @@ int main() {
     Drone drone;
 
     return 0;
-}§
+}

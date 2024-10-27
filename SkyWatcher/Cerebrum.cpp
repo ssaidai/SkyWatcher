@@ -160,7 +160,7 @@ void Cerebrum::solveTSP(const std::array<Position, 100> &positions, int starting
         }
         tour.push_back(start_index);
 
-        visualizeTour(tour, positions);
+        //visualizeTour(tour, positions);
         // Output the tour
         for (RoutingNodeIndex node : tour) {
             Position pos = positions[node.value()];

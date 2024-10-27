@@ -22,6 +22,14 @@ add_executable(SkyWatcher
         # Add other source files if any
 )
 
+add_executable(Drone
+        Drone/main.cpp
+        Drone/Drone.cpp
+        Utils/utils.cpp
+        Utils/Logger.cpp
+        # Add other source files if any
+)
+
 # Find packages
 find_package(ortools REQUIRED)
 find_package(Protobuf REQUIRED)
@@ -39,6 +47,11 @@ target_link_libraries(SkyWatcher PRIVATE
         ${REDIS_PLUS_PLUS_LIBRARY}
         ${HIREDIS_LIBRARY}
         # Add other libraries if necessary
+)
+
+target_link_libraries(Drone PRIVATE
+        ${REDIS_PLUS_PLUS_LIBRARY}
+        ${HIREDIS_LIBRARY}
 )
 
 # Set library search paths

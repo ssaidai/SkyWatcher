@@ -62,14 +62,16 @@ public:
     }
 
     // Send a command to a specific drone
-    void send_command_to_drone(const std::string &drone_id, const std::string &command) {
+    void send_command_to_drone(const std::string &drone_id, const std::string &command) const
+    {
         std::string drone_command_key = "drone:" + drone_id + ":commands";
         redis->rpush(drone_command_key, command);  // Use a list to enqueue commands for the drone
         std::cout << "Command sent to drone " << drone_id << ": " << command << std::endl;
     }
 
     // Optionally broadcast a command to all drones
-    void broadcast_command(const std::string &command) {
+    void broadcast_command(const std::string &command) const
+    {
         redis->publish("drone:broadcast", command);  // Publish to a broadcast channel
         std::cout << "Broadcast command: " << command << std::endl;
     }
@@ -111,14 +113,15 @@ private:
     }
 
     [[noreturn]] void monitor_drones(){
+        std::this_thread::sleep_for(std::chrono::seconds(5));  // Wait for drones to initialize
         while (true) {
-            for (auto &entry : drone_to_sector_map) {
-                if (!isAlive(entry.first)) {
-                    std::cout << "Drone " << std::to_string(entry.first) << " is not responding. Taking action!" << std::endl;
+            for (auto & [fst, snd] : drone_to_sector_map) {
+                if (!isAlive(fst)) {
+                    std::cout << "Drone " << std::to_string(fst) << " is not responding. Taking action!" << std::endl;
                     // Here, you can trigger substitute logic or reassign tasks
                     std::lock_guard lock(sectors_mutex);
-                    entry.second->assignDrone(-1);
-                    drone_to_sector_map.erase(entry.first);
+                    snd->assignDrone(-1);
+                    drone_to_sector_map.erase(fst);
                 }
             }
             std::this_thread::sleep_for(std::chrono::seconds(5));  // Check every 5 seconds
@@ -187,6 +190,7 @@ public:
         std::thread init_listener_thread([this, callback]() {
             this->listen_for_initialization(callback);
         });
+         init_listener_thread.detach();
         std::this_thread::sleep_for(std::chrono::milliseconds(50));  // Wait for the listener to start
 
         nlohmann::json handshake_message = {
@@ -195,8 +199,6 @@ public:
 
         // Publish a handshake message to the tower
         redis->publish("drone:handshake", handshake_message.dump());
-
-        init_listener_thread.join();  // Wait for initialization to complete
     }
 
     // Start sleeping thread
@@ -272,7 +274,8 @@ private:
 
         // Wait for initialization message
         try {
-            subscriber.consume();
+            while(true)
+                subscriber.consume();
         } catch (const Error &err) {
             std::cerr << "Error subscribing to initialization: " << err.what() << std::endl;
         }

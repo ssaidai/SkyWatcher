@@ -42,8 +42,9 @@ WatchZone::WatchZone()
     std::cout << "Listening for drone connections..." << std::endl;
 
     // Look for disconnected drones
-    client.start_monitoring_drones();
+    //client.start_monitoring_drones();
     std::cout << "Monitoring drones..." << std::endl;
+
 
     // Send a command to drone with ID "drone_1"
     //// redis.send_command_to_drone("drone_1", "Move to area (10, 20)");
@@ -52,6 +53,9 @@ WatchZone::WatchZone()
     //// redis.broadcast_command("All drones perform maintenance check.");
 
     // Initialize the TSP solver with the paths to all sectors
+
+    std::cout << "Press Enter to exit..." << std::endl;
+    std::cin.get();  // Wait for user input to keep the main thread alive
 }
 
 

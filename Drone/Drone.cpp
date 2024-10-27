@@ -33,12 +33,12 @@ Drone::Drone() : redisClient(RedisCommunication("127.0.0.1", 6379).get_redis_ins
         this->towerPosition = {init_message["tower_position"][0], init_message["tower_position"][1]};
         this->position = this->towerPosition;
         Position startPoint = {init_message["starting_point"][0], init_message["starting_point"][1]};
-        int sleepTime = init_message["sleep_time"];
+        int sleepTime = init_message["timer"];
 
-        std::array<Position, 100> foo{}; // TODO: TO BE IMPLEMENTED
+        std::array<Position, 100> tsp = init_message["tsp"]; // TODO: TO BE IMPLEMENTED
 
         // Initialize operation
-        this->receiveDestination(startPoint, sleepTime, foo, true);
+        this->receiveDestination(startPoint, sleepTime, tsp, true);
     });
 
     // Start the status update thread
