@@ -26,7 +26,7 @@ private:
 public:
     explicit Cerebrum(const std::vector<std::shared_ptr<Sector>> &sectors);
     // TSP solver implementation
-    void solveTSP(const std::array<Position, 100> &positions);
+    void solveTSP(const std::array<Position, 100> &positions, int starting_index);
 };
 
 

@@ -31,6 +31,7 @@ private:
     std::array<Position, 100> waypoints{};
     double distance;
     int timer;
+    int starting_index;
 
 public:
     Sector(int sectorID, int startX, int startY, const std::vector<std::vector<std::shared_ptr<Cell>>>& allCells) : assignedDroneID(-1) {
@@ -46,18 +47,22 @@ public:
         if(startY < 15 && startX < 15){
             // Top-left region
             startingPoint = this->grid[9][9]->getCenter();
+            starting_index = 99;
         }
         else if(startY < 15){
             // Top-right region
             startingPoint = this->grid[9][0]->getCenter();
+            starting_index = 90;
         }
         else if(startX < 15){
             // Bottom-left region
             startingPoint = this->grid[0][9]->getCenter();
+            starting_index = 9;
         }
         else{
             // Bottom-right region
             startingPoint = this->grid[0][0]->getCenter();
+            starting_index = 0;
         }
 
         // Calculate travelTime
@@ -76,6 +81,10 @@ public:
 
     [[nodiscard]] int getTimer() const {
         return timer;
+    }
+
+    [[nodiscard]] int getStartingIndex() const {
+        return starting_index;
     }
 
     [[nodiscard]] const std::array<Position, 100>& getWaypoints() const {

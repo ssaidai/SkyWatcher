@@ -18,6 +18,7 @@ add_executable(SkyWatcher
         SkyWatcher/SkyWatcher.cpp
         SkyWatcher/WatchZone.cpp
         Utils/utils.cpp
+        Utils/Logger.cpp
         # Add other source files if any
 )
 

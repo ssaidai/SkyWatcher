@@ -4,8 +4,9 @@ using namespace operations_research;
 
 
 Cerebrum::Cerebrum(const std::vector<std::shared_ptr<Sector>> &s) : sectors(s) {
+    const Sector *sector = sectors[464].get();
     // Solve TSP for the first sector
-    solveTSP(sectors[464]->getWaypoints());
+    solveTSP(sector->getWaypoints(), sector->getStartingIndex());
     for (const auto &sector : sectors) {
 
     }
@@ -56,7 +57,7 @@ void visualizeTour(const std::vector<RoutingNodeIndex>& tour, const std::array<P
     for (const auto& pos : cell_positions) {
         sf::CircleShape shape(cell_radius);
         sf::Vector2f scaled_pos = scalePosition(pos);
-        scaled_pos.y = window_height - scaled_pos.y; // Invert y-axis if necessary
+        //  scaled_pos.y = window_height - scaled_pos.y; // Invert y-axis if necessary
         shape.setPosition(scaled_pos - sf::Vector2f(cell_radius, cell_radius));
         shape.setFillColor(sf::Color::Blue);
         cell_shapes.push_back(shape);
@@ -124,8 +125,14 @@ std::array<std::array<int, 100>, 100> Cerebrum::ComputeDistanceMatrix(const std:
     return distance_matrix;
 }
 
-void Cerebrum::solveTSP(const std::array<Position, 100> &positions) {
-    RoutingNodeIndex start_index(0);
+void Cerebrum::solveTSP(const std::array<Position, 100> &positions, int starting_index) {
+    RoutingNodeIndex start_index(starting_index);
+
+    // Print the positions
+    for (size_t i = 0; i < positions.size(); ++i) {
+        const auto& [x, y] = positions[i];
+        std::cout << "Cell " << i << ": (" << x << ", " << y << ")\n";
+    }
 
     const auto distance_matrix = ComputeDistanceMatrix(positions);
     RoutingIndexManager manager(static_cast<int>(positions.size()), 1, start_index);
@@ -165,21 +172,21 @@ void Cerebrum::solveTSP(const std::array<Position, 100> &positions) {
                       << pos.x << ", " << pos.y << ")\n";
         }
 
-//        // Apply transformations for other sectors
-//        // For example, mirror over vertical axis and translate
-//        std::array<Position, 100> transformed_positions{};
-//        for (RoutingNodeIndex node : tour) {
-//            //Position pos = positions[node];
-//            //pos = MirrorOverVerticalAxis(pos, /* axis_x */);
-//            //pos = TranslatePosition(pos, /* dx */, /* dy */);
-//            //transformed_positions.push_back(pos);
-//        }
-//
-//        // Output the transformed tour
-//        std::cout << "Transformed tour:\n";
-//        for (const auto& pos : transformed_positions) {
-//            std::cout << "Visit position (" << pos.x << ", " << pos.y << ")\n";
-//        }
+        // Apply transformations for other sectors
+        // For example, mirror over vertical axis and translate
+        // std::array<Position, 100> transformed_positions{};
+        // for (RoutingNodeIndex node : tour) {
+        //     Position pos = positions[node.value()];
+        //     pos = MirrorOverVerticalAxis(pos, /* axis_x */);
+        //     pos = TranslatePosition(pos, /* dx */, /* dy */);
+        //     transformed_positions.push_back(pos);
+        // }
+
+        // Output the transformed tour
+        // std::cout << "Transformed tour:\n";
+        // for (const auto& pos : transformed_positions) {
+        //     std::cout << "Visit position (" << pos.x << ", " << pos.y << ")\n";
+        // }
 
     } else {
         std::cout << "No solution found.\n";
