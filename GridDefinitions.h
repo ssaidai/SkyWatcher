@@ -25,10 +25,11 @@ public:
 // A sector is a 10x10 sub-grid of cells
 class Sector {
 private:
-    int sectorID, assignedDroneID;
+    int sectorID, assignedDroneID, regionID;
     std::vector<std::vector<Cell*>> grid;
     Position startingPoint{};
     std::array<Position, 100> waypoints{};
+    std::array<Position, 100> path{};
     double distance;
     int timer;
     int starting_index;
@@ -44,24 +45,28 @@ public:
             }
         }
         // Set the starting point based on the sector's position (starting point should be the center of the closest cell to the center of the area)
-        if(startY < 15 && startX < 15){
+        if(startY < 150 && startX < 150){
             // Top-left region
             startingPoint = this->grid[9][9]->getCenter();
+            regionID = 0;
             starting_index = 99;
         }
-        else if(startY < 15){
+        else if(startY < 150){
             // Top-right region
             startingPoint = this->grid[9][0]->getCenter();
+            regionID = 1;
             starting_index = 90;
         }
-        else if(startX < 15){
+        else if(startX < 150){
             // Bottom-left region
             startingPoint = this->grid[0][9]->getCenter();
+            regionID = 2;
             starting_index = 9;
         }
         else{
             // Bottom-right region
             startingPoint = this->grid[0][0]->getCenter();
+            regionID = 3;
             starting_index = 0;
         }
 
@@ -79,6 +84,11 @@ public:
         this->assignedDroneID = droneID;
     }
 
+    [[nodiscard]] std::array<Position, 100> getTSP() const
+    {
+        return path;
+    }
+
     [[nodiscard]] int getTimer() const {
         return timer;
     }
@@ -89,6 +99,14 @@ public:
 
     [[nodiscard]] const std::array<Position, 100>& getWaypoints() const {
         return waypoints;
+    }
+
+    [[nodiscard]] int getRegionID() const {
+        return regionID;
+    }
+
+    void setTSP(const std::array<Position, 100>& path) {
+        this->path = path;
     }
 
     [[nodiscard]] int getSectorID() const {

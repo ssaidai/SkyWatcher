@@ -4,18 +4,19 @@ using namespace operations_research;
 
 
 Cerebrum::Cerebrum(const std::vector<std::shared_ptr<Sector>> &s) : sectors(s) {
-    const Sector *sector = sectors[464].get();
+    // Get first sector of region D
+    const Sector *sector = sectors[465].get();
     // Solve TSP for the first sector
     solveTSP(sector->getWaypoints(), sector->getStartingIndex());
-    for (const auto &sector : sectors) {
-
+    for (const auto &sect : sectors) {
+        sect->setTSP(relativeTSPPaths[sect->getRegionID()]);
     }
 }
 
 void visualizeTour(const std::vector<RoutingNodeIndex>& tour, const std::array<Position, 100>& cell_positions) {
     // Set up the window
-    const int window_width = 800;
-    const int window_height = 800;
+    constexpr int window_width = 800;
+    constexpr int window_height = 800;
     sf::RenderWindow window(sf::VideoMode(window_width, window_height), "TSP Path Visualization");
 
     // Determine the min and max coordinates
@@ -44,10 +45,10 @@ void visualizeTour(const std::vector<RoutingNodeIndex>& tour, const std::array<P
 
     // Function to scale positions to window coordinates
     auto scalePosition = [&](const Position& pos) -> sf::Vector2f {
-        return sf::Vector2f(
+        return {
                 static_cast<float>((pos.x - min_x) * scale_x),
                 static_cast<float>((pos.y - min_y) * scale_y)
-        );
+        };
     };
 
     // Create shapes for the cells
@@ -71,10 +72,10 @@ void visualizeTour(const std::vector<RoutingNodeIndex>& tour, const std::array<P
 
     // Create vertices for the path
     std::vector<sf::Vertex> path_vertices;
-    for (size_t i = 0; i < tour_positions.size(); ++i) {
-        sf::Vector2f scaled_pos = scalePosition(tour_positions[i]);
+    for (auto tour_position : tour_positions) {
+        sf::Vector2f scaled_pos = scalePosition(tour_position);
         scaled_pos.y = window_height - scaled_pos.y; // Invert y-axis if necessary
-        path_vertices.push_back(sf::Vertex(scaled_pos, sf::Color::Red));
+        path_vertices.emplace_back(scaled_pos, sf::Color::Red);
     }
 
     // Close the loop
@@ -87,7 +88,7 @@ void visualizeTour(const std::vector<RoutingNodeIndex>& tour, const std::array<P
 
     // Main loop
     while (window.isOpen()) {
-        sf::Event event;
+        sf::Event event{};
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed)
                 window.close();
@@ -111,14 +112,14 @@ void visualizeTour(const std::vector<RoutingNodeIndex>& tour, const std::array<P
 
 
 std::array<std::array<int, 100>, 100> Cerebrum::ComputeDistanceMatrix(const std::array<Position, 100> &positions) {
-    const int size = positions.size();
+    const size_t size = positions.size();
     std::array<std::array<int, 100>, 100> distance_matrix{};
-    for (int from = 0; from < size; ++from) {
-        for (int to = 0; to < size; ++to) {
+    for (size_t from = 0; from < size; ++from) {
+        for (size_t to = 0; to < size; ++to) {
             if (from == to) continue;
-            double dx = positions[from].x - positions[to].x;
-            double dy = positions[from].y - positions[to].y;
-            double distance = std::sqrt(dx * dx + dy * dy);
+            const double dx = positions[from].x - positions[to].x;
+            const double dy = positions[from].y - positions[to].y;
+            const double distance = std::sqrt(dx * dx + dy * dy);
             distance_matrix[from][to] = static_cast<int>(distance * 1000); // Scale if needed.
         }
     }
@@ -127,12 +128,7 @@ std::array<std::array<int, 100>, 100> Cerebrum::ComputeDistanceMatrix(const std:
 
 void Cerebrum::solveTSP(const std::array<Position, 100> &positions, int starting_index) {
     RoutingNodeIndex start_index(starting_index);
-
-    // Print the positions
-    for (size_t i = 0; i < positions.size(); ++i) {
-        const auto& [x, y] = positions[i];
-        std::cout << "Cell " << i << ": (" << x << ", " << y << ")\n";
-    }
+    Position starting_position = positions[starting_index];
 
     const auto distance_matrix = ComputeDistanceMatrix(positions);
     RoutingIndexManager manager(static_cast<int>(positions.size()), 1, start_index);
@@ -174,19 +170,20 @@ void Cerebrum::solveTSP(const std::array<Position, 100> &positions, int starting
 
         // Apply transformations for other sectors
         // For example, mirror over vertical axis and translate
-        // std::array<Position, 100> transformed_positions{};
-        // for (RoutingNodeIndex node : tour) {
-        //     Position pos = positions[node.value()];
-        //     pos = MirrorOverVerticalAxis(pos, /* axis_x */);
-        //     pos = TranslatePosition(pos, /* dx */, /* dy */);
-        //     transformed_positions.push_back(pos);
-        // }
+        for (int i = 0; i < 100; ++i) {
+            RoutingNodeIndex node = tour[i];
+            Position offset = positions[node.value()] - starting_position;
+            relativeTSPPaths[3][i] = offset;
+            relativeTSPPaths[2][i] = {-offset.x, offset.y};
+            relativeTSPPaths[1][i] = {offset.x, -offset.y};
+            relativeTSPPaths[0][i] = {-offset.x, -offset.y};
+        }
 
         // Output the transformed tour
-        // std::cout << "Transformed tour:\n";
-        // for (const auto& pos : transformed_positions) {
-        //     std::cout << "Visit position (" << pos.x << ", " << pos.y << ")\n";
-        // }
+        std::cout << "Transformed tour:\n";
+        for (const auto& [x, y] : relativeTSPPaths[3]) {
+            std::cout << "Visit position (" << x << ", " << y << ")\n";
+        }
 
     } else {
         std::cout << "No solution found.\n";

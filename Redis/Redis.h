@@ -160,14 +160,15 @@ private:
                             {"x", startingPoint.x},
                             {"y", startingPoint.y}}
                         },
-                        {"timer", sector->getTimer()}
+                        {"timer", sector->getTimer()},
+                        {"tsp", sector->getTSP()}
                 };
                 break;
             }
         }
 
         // Send initialization message back to the drone
-        std::string drone_channel = "drone:" + drone_uuid + ":init";
+        const std::string drone_channel = "drone:" + drone_uuid + ":init";
         redis->publish(drone_channel, init_message.dump());
 
         std::cout << "Drone " << drone_uuid << " initialized with ID: " << new_drone_id << std::endl;

@@ -1,8 +1,6 @@
 #ifndef SKYWATCHER_STRUCTS_H
 #define SKYWATCHER_STRUCTS_H
-#include <array>
-
-#include <array>
+#include <nlohmann/json.hpp>
 
 struct Position {
     double x;
@@ -17,7 +15,26 @@ struct Position {
     bool operator!=(const Position& other) const {
         return !(*this == other);
     }
+
+    Position operator+(const Position& other) const {
+        return {x + other.x, y + other.y};
+    }
+
+    Position operator-(const Position& other) const {
+        return {x - other.x, y - other.y};
+    }
 };
+
+// Define how to serialize Position to JSON
+inline void to_json(nlohmann::json& j, const Position& pos) {
+    j = nlohmann::json{{"x", pos.x}, {"y", pos.y}};
+}
+
+// Define how to deserialize JSON to Position
+inline void from_json(const nlohmann::json& j, Position& pos) {
+    j.at("x").get_to(pos.x);
+    j.at("y").get_to(pos.y);
+}
 
 struct DroneState {
     enum Enum {

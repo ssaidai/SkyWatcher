@@ -18,8 +18,7 @@
 class Cerebrum {
 private:
     std::vector<std::shared_ptr<Sector>> sectors;
-    std::vector<std::vector<Position>> regionsTSPPath;
-    std::array<Position, 100> checkPoints;
+    std::array<std::array<Position, 100>, 4> relativeTSPPaths{};
 
     std::array<std::array<int, 100>, 100> ComputeDistanceMatrix(const std::array<Position, 100> &positions);
     void fillCheckPoints();
