@@ -9,6 +9,7 @@
 class Drone {
 private:
     Position position;                              // Current position
+    std::mutex positionMutex;                       // Mutex for position
     Position towerPosition;                         // Tower position
     DroneState::Enum state;                         // Current drone state
     DroneClient redisClient;                        // Redis client
@@ -36,6 +37,7 @@ public:
     void move(Position dest, float travelTime);                               // Move toward dest
     void receiveDestination(Position destPoint, int sleepTime,               // Receive new destination
         std::array<Position, 100> waypoints, bool init);
+    void moveToPosition(const Position& destination, float totalTravelTime);
 
     // Threads
     void batteryUpdateThread();                                             // Update drone's battery on redis

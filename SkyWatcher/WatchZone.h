@@ -17,6 +17,19 @@ private:
     RedisCommunication redisCommunication;
     TowerClient client;
     std::vector<std::shared_ptr<Sector>> createSectors();
+    void drawGrid(sf::RenderWindow& window);
+    void visualizationThread(TowerClient &client);
+
+    const int gridRows = 30;
+    const int gridCols = 30;
+
+    // Window dimensions (should match the window you create)
+    const int windowWidth = 800;
+    const int windowHeight = 800;
+
+    // Calculate cell size
+    float cellWidth = static_cast<float>(windowWidth) / gridCols;
+    float cellHeight = static_cast<float>(windowHeight) / gridRows;
 public:
     WatchZone();
     Position getDronePosition(int droneID);

@@ -76,12 +76,23 @@ public:
         std::cout << "Broadcast command: " << command << std::endl;
     }
 
+    std::unordered_map<int, nlohmann::json> get_drone_statuses() {
+        std::lock_guard lock(drones_mutex);
+        return drone_statuses; // Returns a copy of the map
+    }
+
 private:
     std::shared_ptr<Redis> redis;
     std::vector<std::shared_ptr<Sector>> sectors;
     std::unordered_map<int, std::shared_ptr<Sector>> drone_to_sector_map;
     std::mutex sectors_mutex;
     std::atomic<int> drone_id_counter;
+
+    std::mutex drones_mutex;
+    std::unordered_set<int> active_drones;  // Track active drones
+    std::unordered_map<int, nlohmann::json> drone_statuses;  // Store drone statuses
+    std::unordered_map<int, std::chrono::system_clock::time_point> drone_initialization_time;
+
 
     // Listen for new drone connections on the handshake channel
     void listen_for_drone_connections() {
@@ -105,27 +116,67 @@ private:
         }
     }
 
-    bool isAlive(int droneID) const
-    {
-        std::string key = "drone:" + std::to_string(droneID) + ":status";
-        auto exists = redis->exists(key);
-        return exists == 1;
-    }
-
-    [[noreturn]] void monitor_drones(){
-        std::this_thread::sleep_for(std::chrono::seconds(5));  // Wait for drones to initialize
+    void monitor_drones() {
         while (true) {
-            for (auto & [fst, snd] : drone_to_sector_map) {
-                if (!isAlive(fst)) {
-                    std::cout << "Drone " << std::to_string(fst) << " is not responding. Taking action!" << std::endl;
-                    // Here, you can trigger substitute logic or reassign tasks
-                    std::lock_guard lock(sectors_mutex);
-                    snd->assignDrone(-1);
-                    drone_to_sector_map.erase(fst);
+            std::vector<int> drones_to_check;
+            {
+                std::lock_guard lock(drones_mutex);
+                drones_to_check.assign(active_drones.begin(), active_drones.end());
+            }
+
+            for (int drone_id : drones_to_check) {
+                // Check if the drone is within the grace period
+                if (auto init_time_it = drone_initialization_time.find(drone_id); init_time_it != drone_initialization_time.end()) {
+                    auto now = std::chrono::system_clock::now();
+                    if (auto duration_since_init = std::chrono::duration_cast<std::chrono::seconds>(now - init_time_it->second); duration_since_init.count() < 5) { // Grace period in seconds
+                        // Skip checking this drone until grace period is over
+                        continue;
+                    }
+                }
+
+                std::string status_key = "drone:" + std::to_string(drone_id) + ":status";
+
+                try {
+                    if (auto status_opt = redis->get(status_key)) {
+                        // Drone is alive; process status if needed
+                        {
+                            const nlohmann::json status = nlohmann::json::parse(*status_opt);
+                            std::lock_guard lock(drones_mutex);
+                            drone_statuses[drone_id] = status;
+                        }
+                    } else {
+                        // Drone may be unresponsive
+                        handle_unresponsive_drone(drone_id);
+                    }
+                } catch (const Error &err) {
+                    std::cerr << "Error fetching status for drone " << drone_id << ": " << err.what() << std::endl;
                 }
             }
-            std::this_thread::sleep_for(std::chrono::seconds(5));  // Check every 5 seconds
+
+            std::this_thread::sleep_for(std::chrono::seconds(1)); // Adjust as needed
         }
+    }
+
+    void handle_unresponsive_drone(const int drone_id) {
+        std::cout << "Drone " << drone_id << " is not responding. Taking action!" << std::endl;
+
+        {
+            std::lock_guard lock(sectors_mutex);
+            // Remove the drone from its sector
+            if (const auto it = drone_to_sector_map.find(drone_id); it != drone_to_sector_map.end()) {
+                it->second->assignDrone(-1);
+                drone_to_sector_map.erase(it);
+            }
+        }
+
+        {
+            std::lock_guard lock(drones_mutex);
+            // Remove the drone from active drones
+            active_drones.erase(drone_id);
+            // Remove its status
+            drone_statuses.erase(drone_id);
+        }
+        // Additional actions can be taken, such as alerting operators or reassigning tasks
     }
 
     // Initialize the drone by assigning it a unique ID and sending initialization data
@@ -146,6 +197,12 @@ private:
                     {"y", 3000}}
                 }
         };
+
+        {
+            std::lock_guard lock2(drones_mutex);
+            active_drones.insert(new_drone_id);
+            drone_initialization_time[new_drone_id] = std::chrono::system_clock::now();
+        }
 
         // Assign the drone to a sector
         for (const auto &sector : sectors) {
@@ -211,6 +268,10 @@ public:
         sleeping_thread.detach();
     }
 
+    std::shared_ptr<Redis> getRedisInstance() {
+         return redis;
+     }
+
     // Start listening for commands after initialization
     [[noreturn]] void listen_for_commands(const std::function<void(const std::string &)> &callback) const
     {
@@ -232,15 +293,15 @@ public:
         std::cout << "Drone " << drone_id << " status updated: " << status << std::endl;
 
         // Also append the status to a central Redis Stream
-        std::string stream_key = "status_logs";
-        nlohmann::json status_log = status;
-        status_log["timestamp"] = getCurrentTime();  // Include a timestamp
-
-        // Prepare fields for xadd
-        std::vector<std::pair<std::string, std::string>> fields = {{"status", status_log.dump()}};
-
-        // Add the status update to the central stream
-        redis->xadd(stream_key, "*", fields.begin(), fields.end());
+        // std::string stream_key = "status_logs";
+        // nlohmann::json status_log = status;
+        // status_log["timestamp"] = getCurrentTime();  // Include a timestamp
+        //
+        // // Prepare fields for xadd
+        // std::vector<std::pair<std::string, std::string>> fields = {{"status", status_log.dump()}};
+        //
+        // // Add the status update to the central stream
+        // redis->xadd(stream_key, "*", fields.begin(), fields.end());
     }
 
 private:

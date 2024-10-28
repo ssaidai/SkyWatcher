@@ -74,7 +74,7 @@ public:
         distance = utils::calculateDistance(Position{3000,3000}, startingPoint);
         int travelTime = static_cast<int>(utils::calculateTime(distance, 30 / 3.6));
 
-        int temp = 1800 - 2 * travelTime;
+        int temp = 1800 - travelTime;
 
         // Calculate the time after which the tower should send a new drone to this sector
         timer = temp - static_cast<int>(std::fmod(temp, 240));

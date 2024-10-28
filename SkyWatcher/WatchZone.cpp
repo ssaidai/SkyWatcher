@@ -31,6 +31,121 @@ std::vector<std::shared_ptr<Sector>> WatchZone::createSectors() {
     return sectors;
 }
 
+sf::Vector2f scalePosition(double x, double y) {
+    // Assuming your coordinate system ranges from (0,0) to (6000,6000)
+    // Adjust the scaling to fit the window size
+
+    const double grid_width = 6000.0;
+    const double grid_height = 6000.0;
+    const int window_width = 800;
+    const int window_height = 800;
+
+    double scale_x = window_width / grid_width;
+    double scale_y = window_height / grid_height;
+
+    float screen_x = static_cast<float>(x * scale_x);
+    float screen_y = static_cast<float>(y * scale_y);
+
+    // SFML's y-axis increases downward, which matches your coordinate system
+
+    return sf::Vector2f(screen_x, screen_y);
+}
+
+void WatchZone::drawGrid(sf::RenderWindow& window) {
+    sf::Color gridColor = sf::Color(200, 200, 200); // Light gray color for grid lines
+
+    // Create vertical lines
+    for (int i = 0; i <= gridCols; ++i) {
+        sf::Vertex line[] = {
+            sf::Vertex(sf::Vector2f(i * cellWidth, 0), gridColor),
+            sf::Vertex(sf::Vector2f(i * cellWidth, windowHeight), gridColor)
+        };
+        window.draw(line, 2, sf::Lines);
+    }
+
+    // Create horizontal lines
+    for (int i = 0; i <= gridRows; ++i) {
+        sf::Vertex line[] = {
+            sf::Vertex(sf::Vector2f(0, i * cellHeight), gridColor),
+            sf::Vertex(sf::Vector2f(windowWidth, i * cellHeight), gridColor)
+        };
+        window.draw(line, 2, sf::Lines);
+    }
+}
+
+void WatchZone::visualizationThread(TowerClient& tower_client) {
+    sf::RenderWindow window(sf::VideoMode(windowWidth, windowHeight), "Drone Monitoring");
+
+    // Load font for text (make sure the font file is available)
+    sf::Font font;
+    if (!font.loadFromFile("arial.ttf")) {
+        std::cerr << "Error loading font." << std::endl;
+        // Handle error appropriately
+    }
+
+    while (window.isOpen()) {
+        sf::Event event{};
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();
+        }
+
+        // Clear the window
+        window.clear(sf::Color::White);
+
+        // Draw the grid
+        drawGrid(window);
+
+        // Optional: Highlight sectors
+        //drawSectorHighlights(window, sectors);
+
+        // Optional: Draw sector labels
+        //drawSectorLabels(window, font);
+
+        // Get the latest drone statuses
+        auto drone_statuses = tower_client.get_drone_statuses();
+
+        // Process and draw drone positions
+        for (const auto& [drone_id, status] : drone_statuses) {
+            double x = status["position"]["x"];
+            double y = status["position"]["y"];
+            double battery = status["battery_level"];
+
+            // Scale positions to window size
+            sf::Vector2f position = scalePosition(x, y);
+
+            // Create a circle to represent the drone
+            sf::CircleShape drone_shape(5.0f);
+            drone_shape.setOrigin(5.0f, 5.0f); // Center the shape
+            drone_shape.setPosition(position);
+            drone_shape.setFillColor(sf::Color::Blue);
+
+            // Optionally change color based on battery level
+            if (battery < 20.0) {
+                drone_shape.setFillColor(sf::Color::Red);
+            }
+
+            // Draw the drone
+            window.draw(drone_shape);
+
+            // Optionally, display the drone's ID
+            // sf::Text drone_text;
+            // drone_text.setFont(font);
+            // drone_text.setString(std::to_string(drone_id));
+            // drone_text.setCharacterSize(12);
+            // drone_text.setFillColor(sf::Color::Black);
+            // drone_text.setPosition(position.x + 5, position.y + 5);
+
+            // window.draw(drone_text);
+        }
+
+        // Display the window
+        window.display();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+}
+
 WatchZone::WatchZone()
         : sectors(createSectors()), // Initialize sectors using the new method
           cerebrum(sectors), // Initialize cerebrum with the newly created sectors
@@ -41,21 +156,12 @@ WatchZone::WatchZone()
     client.start_listening_for_drones();
     std::cout << "Listening for drone connections..." << std::endl;
 
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     // Look for disconnected drones
-    //client.start_monitoring_drones();
+    client.start_monitoring_drones();
     std::cout << "Monitoring drones..." << std::endl;
 
-
-    // Send a command to drone with ID "drone_1"
-    //// redis.send_command_to_drone("drone_1", "Move to area (10, 20)");
-
-    // Broadcast a command to all drones
-    //// redis.broadcast_command("All drones perform maintenance check.");
-
-    // Initialize the TSP solver with the paths to all sectors
-
-    std::cout << "Press Enter to exit..." << std::endl;
-    std::cin.get();  // Wait for user input to keep the main thread alive
+    visualizationThread(std::ref(client));
 }
 
 

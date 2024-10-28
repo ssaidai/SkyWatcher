@@ -30,31 +30,25 @@ Drone::Drone() : redisClient(RedisCommunication("127.0.0.1", 6379).get_redis_ins
     redisClient.connect_to_tower([this](nlohmann::json init_message) {  // Lambda function to assign droneID, could be a member function
         // Init_message parse
         this->ID = init_message["drone_id"];
-        this->towerPosition = {init_message["tower_position"][0], init_message["tower_position"][1]};
+        this->towerPosition = {init_message["tower_position"]["x"], init_message["tower_position"]["y"]};
         this->position = this->towerPosition;
-        Position startPoint = {init_message["starting_point"][0], init_message["starting_point"][1]};
+        Position startPoint = {init_message["starting_point"]["x"], init_message["starting_point"]["y"]};
         int sleepTime = init_message["timer"];
 
         std::array<Position, 100> tsp = init_message["tsp"]; // TODO: TO BE IMPLEMENTED
+
+        // Start the status update thread
+        std::thread statusUpdateThread(&Drone::statusUpdateThread, this);
+        statusUpdateThread.detach();
+
+        std::thread batteryUpdateThread(&Drone::batteryUpdateThread, this);
+        batteryUpdateThread.detach();
 
         // Initialize operation
         this->receiveDestination(startPoint, sleepTime, tsp, true);
     });
 
-    // Start the status update thread
-    std::thread statusUpdateThread(&Drone::statusUpdateThread, this);
-    statusUpdateThread.detach();
-
-    std::thread batteryUpdateThread(&Drone::batteryUpdateThread, this);
-    batteryUpdateThread.detach();
-
-    // Run this in the listener thread
-    redisClient.listen_for_commands([this](const std::string &command) {
-        if (command == "recallAll") {
-            this->changeState(DroneState::Returning);
-        }
-    });
-
+    std::cin.get();
 }
 
 
@@ -62,48 +56,85 @@ Drone::Drone() : redisClient(RedisCommunication("127.0.0.1", 6379).get_redis_ins
 // Receive new path from the tower
 // init=true if it's called from the constructor, else init=false
 void Drone::receiveDestination(Position startPoint, int sleepTime,
-    std::array<Position, 100> waypoints, bool init=false) {
+                               std::array<Position, 100> waypoints, bool init = false) {
     if (this->state == DroneState::Ready) {
-        // Initialize Path's params
+        // Initialize Path's parameters
         double distance = utils::calculateDistance(this->position, startPoint);
         float travelTime = utils::calculateTime(distance, Drone::speed);
 
-
         // Drone Arriving
         this->changeState(DroneState::Arriving);
-        this->move(startPoint, travelTime);
-
+        this->moveToPosition(startPoint, travelTime);
 
         // Drone Waiting
         if (init) {
             this->changeState(DroneState::Waiting);
             this->changeConsumptionRatio(0.5);
-            // TODO: listen for broadcast
+            // Implement any waiting logic here
             this->changeConsumptionRatio(1.0);
         }
 
-
-        // Drone monitoring
+        // Drone Monitoring
         this->changeState(DroneState::Monitoring);
         int cycleIteration = this->getCycleIteration(sleepTime);
-        for(int i = 0; i < cycleIteration; i++) {
-            // The drone is going through every cell waypoint following the TSP-CPP algorithm
-            for (auto waypoint: waypoints) {
-                // Wait for the drone reaching the assigned sector
-                std::this_thread::sleep_for(std::chrono::duration<float>(cellTravelTime));
-                this->position = waypoint;
+        for (int i = 0; i < cycleIteration; i++) {
+            for (const auto& waypoint : waypoints) {
+                double wp_distance = utils::calculateDistance(this->position, waypoint);
+                float wp_travelTime = utils::calculateTime(wp_distance, Drone::speed);
+                this->moveToPosition(waypoint, wp_travelTime);
             }
         }
 
         // Drone Returning
         this->changeState(DroneState::Returning);
-        this->move(this->towerPosition, travelTime);
+        distance = utils::calculateDistance(this->position, this->towerPosition);
+        travelTime = utils::calculateTime(distance, Drone::speed);
+        this->moveToPosition(this->towerPosition, travelTime);
 
         // Drone Charging
         this->changeState(DroneState::Charging);
         this->recharge();
+    }
+}
 
-        // TODO: disconnect from reddis
+void Drone::moveToPosition(const Position& destination, float totalTravelTime) {
+    // Record the start time
+    auto startTime = std::chrono::steady_clock::now();
+    Position startPosition{};
+    {
+        std::lock_guard lock(positionMutex);
+        startPosition = this->position;
+    }
+
+    float elapsedTime = 0.0f;
+
+    while (elapsedTime < totalTravelTime) {
+        // Calculate the fraction of travel completed
+        float fraction = elapsedTime / totalTravelTime;
+
+        // Interpolate the position
+        Position newPosition{};
+        newPosition.x = startPosition.x + fraction * (destination.x - startPosition.x);
+        newPosition.y = startPosition.y + fraction * (destination.y - startPosition.y);
+
+        // Update the drone's position
+        {
+            std::lock_guard lock(positionMutex);
+            this->position = newPosition;
+        }
+
+        // Sleep for the update interval
+        std::this_thread::sleep_for(std::chrono::duration<float>(0.1f));
+
+        // Update the elapsed time
+        auto currentTime = std::chrono::steady_clock::now();
+        elapsedTime = std::chrono::duration<float>(currentTime - startTime).count();
+    }
+
+    // Ensure the final position is set exactly to the destination
+    {
+        std::lock_guard lock(positionMutex);
+        this->position = destination;
     }
 }
 
@@ -165,7 +196,7 @@ void Drone::recharge() {
 }
 
 // Change drone state
-void Drone::changeState(DroneState::Enum newState) {
+void Drone::changeState(const DroneState::Enum newState) {
     this->state = newState;
 }
 
@@ -175,13 +206,16 @@ void Drone::changeConsumptionRatio(double ratio) {
 
 [[noreturn]] void Drone::statusUpdateThread() {
     // Send status update to the tower
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     while (true) {
         // Create a json object with the drone status
         nlohmann::json status = {
             {"drone_id", this->ID},
-            {"position", {this->position.x, this->position.y}},
-            {"battery_level", this->batteryLevel},
-            {"state", this->state}
+            {"position", this->position},
+            {"battery_level", std::floor(this->batteryLevel * 100.0) / 100.0},
+            {"state", this->state},
+            {"timestamp", std::chrono::system_clock::now().time_since_epoch().count()}
         };
 
         // Send the status update
