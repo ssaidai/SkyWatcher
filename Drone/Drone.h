@@ -19,7 +19,7 @@ private:
     int timeScale;                          // Time scale for the simulation
     double batteryLevel;                    // Current battery level
     double  consumptionRatio;               // Drone's battery consumption rate
-    double consumptionRate;    // batteryConsumption/s
+    static const double consumptionRate;    // batteryConsumption/s
     static const double speed;              // Speed in m/s
     static const double flightAutonomy;     // Flight autonomy in minutes
     static const double rechargeTimeMin;    // Minimum recharge time in hours

@@ -12,6 +12,7 @@ const double Drone::flightAutonomy = 30;
 const double Drone::rechargeTimeMin = 2;
 const double Drone::rechargeTimeMax = 3;
 const double Drone::speed = 30.0 / 3.6;       // 30km/h in m/s
+const double Drone::consumptionRate = 100.0 / (flightAutonomy * 60.0);  // consumptionRate/second
 const double Drone::visibilityRange = 10;
 constexpr float cellTravelTime = 20.0 / (30.0 / 3.6);
 
@@ -21,16 +22,16 @@ Drone::Drone(int timeScale) : redisClient(RedisCommunication("127.0.0.1", 6379).
     this->batteryLevel = 100.0; // Initialize battery level at maximum
     this->state = DroneState::Ready;
     this->consumptionRatio = 1.0;
-    this->consumptionRate = 100.0 / (flightAutonomy * 60.0 * timeScale);  // consumptionRate/second
+    //this->consumptionRate = 100.0 / (flightAutonomy * 60.0);  // consumptionRate/second
 
     // Initialize connection to tower
     redisClient.connect_to_tower([this](nlohmann::json init_message) {  // Lambda function to assign droneID, could be a member function
         // Init_message parse
         this->ID = init_message["drone_id"];
-        this->towerPosition = {init_message["tower_position"]["x"], init_message["tower_position"]["y"]};
+        this->towerPosition = init_message["tower_position"];
         this->position = this->towerPosition;
-        Position startPoint = {init_message["starting_point"]["x"], init_message["starting_point"]["y"]};
-        int sleepTime = init_message["timer"];
+        const Position startPoint = init_message["starting_point"];
+        const int sleepTime = init_message["timer"];
 
         const std::array<Position, 100> tsp = init_message["tsp"];
 
@@ -145,7 +146,7 @@ void Drone::moveToPosition(const Position& destination, float totalTravelTime) {
 // Simulate drone battery consumption
 void Drone::consumption() {
     // Battery level should never be fall below 0%
-    std::lock_guard<std::mutex> lock(batteryMutex);
+    std::lock_guard lock(batteryMutex);
     {
         this->batteryLevel = std::max(this->batteryLevel - consumptionRate * this->consumptionRatio, 0.0);
 
