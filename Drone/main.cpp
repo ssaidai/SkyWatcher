@@ -1,23 +1,16 @@
-#include <iostream>
-#include <unistd.h>
-#include <thread>
-#include <chrono>
 #include "Drone/Drone.h"
-#include "Redis/Redis.h"
-#include "Utils/utils.h"
+
 
 int main() {
+    // Initialize a drone
     std::vector<std::thread> threads;
-
-    for (int i = 0; i < 128; i++) {
+    for(int i = 0; i < 16; i++) {
         threads.emplace_back([]() {
-            Drone drone;
+            Drone drone(60);
         });
     }
-
-    for (auto &t : threads) {
-        t.join();
+    for(auto& thread : threads) {
+        thread.join();
     }
-
     return 0;
 }

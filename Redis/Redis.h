@@ -28,11 +28,6 @@ public:
         redis = std::make_shared<Redis>(connection_options);
     }
 
-    ~RedisCommunication() {
-        // Proper cleanup of the Redis connection
-        redis->flushall();  // Optional, clears all keys; can be removed if not needed
-    }
-
     std::shared_ptr<Redis> get_redis_instance() {
         return redis;
     }
@@ -44,7 +39,7 @@ private:
 // Tower Client (for controlling drones)
 class TowerClient {
 public:
-    explicit TowerClient(const std::shared_ptr<Redis> &redis, std::vector<std::shared_ptr<Sector>> &s) : redis(redis), drone_id_counter(0), sectors(s){}
+    explicit TowerClient(const std::shared_ptr<Redis> &redis, std::vector<std::shared_ptr<Sector>> &s, const int timeScale, const Position pos) : redis(redis), drone_id_counter(0), sectors(s), timeScale(timeScale), tower_position(pos){}
 
     // Start a listener thread to handle new drone connections
     void start_listening_for_drones() {
@@ -87,7 +82,9 @@ private:
     std::unordered_map<int, std::shared_ptr<Sector>> drone_to_sector_map;
     std::mutex sectors_mutex;
     std::atomic<int> drone_id_counter;
+    int timeScale;
 
+    Position tower_position;
     std::mutex drones_mutex;
     std::unordered_set<int> active_drones;  // Track active drones
     std::unordered_map<int, nlohmann::json> drone_statuses;  // Store drone statuses
@@ -153,7 +150,7 @@ private:
                 }
             }
 
-            std::this_thread::sleep_for(std::chrono::seconds(1)); // Adjust as needed
+            std::this_thread::sleep_for(std::chrono::duration<float>(1.0 / timeScale)); // Adjust as needed
         }
     }
 
@@ -192,10 +189,7 @@ private:
         // Create an initialization message with the assigned ID and an area to monitor
         nlohmann::json init_message = {
                 {"drone_id", new_drone_id},
-                {"tower_position", {
-                    {"x", 3000},
-                    {"y", 3000}}
-                }
+                {"tower_position", tower_position}
         };
 
         {
@@ -212,14 +206,8 @@ private:
                 Position startingPoint = sector->getStartingPoint();
                 init_message = {
                         {"drone_id", new_drone_id},
-                        {"tower_position", {
-                            {"x", 3000},
-                            {"y", 3000}}
-                        },
-                        {"starting_point", {
-                            {"x", startingPoint.x},
-                            {"y", startingPoint.y}}
-                        },
+                        {"tower_position", tower_position},
+                        {"starting_point", startingPoint},
                         {"timer", sector->getTimer()},
                         {"tsp", sector->getTSP()}
                 };
@@ -238,8 +226,8 @@ private:
 // Drone Client (for receiving commands and sending status updates)
 class DroneClient {
 public:
-     DroneClient(const std::shared_ptr<Redis> &redis)
-            : redis(redis), drone_uuid(generate_uuid()) {}
+     DroneClient(const std::shared_ptr<Redis> &redis, int timeScale)
+            : redis(redis), drone_uuid(generate_uuid()), timeScale(timeScale) {}
 
     // Send a handshake to the tower to register the drone
     void connect_to_tower(const std::function<void(const nlohmann::json &)>& callback) {
@@ -248,7 +236,7 @@ public:
             this->listen_for_initialization(callback);
         });
          init_listener_thread.detach();
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));  // Wait for the listener to start
+         std::this_thread::sleep_for(std::chrono::duration<float>(0.05 / timeScale));  // Wait for the listener to start
 
         nlohmann::json handshake_message = {
                 {"drone_uuid", drone_uuid}
@@ -259,10 +247,10 @@ public:
     }
 
     // Start sleeping thread
-    void start_sleeping_thread(const nlohmann::json& message, int seconds) const
+    void start_sleeping_thread(const nlohmann::json& message, float seconds) const
     {
         std::thread sleeping_thread([this, message, seconds]() {
-            std::this_thread::sleep_for(std::chrono::seconds(seconds));
+            std::this_thread::sleep_for(std::chrono::duration<float>(seconds / timeScale));
             redis->publish("drone:go_next", message.dump());
         });
         sleeping_thread.detach();
@@ -308,6 +296,7 @@ private:
     std::shared_ptr<Redis> redis;
     std::string drone_uuid;     // Unique drone identifier
     int drone_id;               // Assigned after initialization
+    int timeScale;
 
     // Generate a UUID for the drone name
     std::string generate_uuid() {

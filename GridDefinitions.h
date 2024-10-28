@@ -26,6 +26,7 @@ public:
 class Sector {
 private:
     int sectorID, assignedDroneID, regionID;
+    float areaSize;
     std::vector<std::vector<Cell*>> grid;
     Position startingPoint{};
     std::array<Position, 100> waypoints{};
@@ -35,7 +36,7 @@ private:
     int starting_index;
 
 public:
-    Sector(int sectorID, int startX, int startY, const std::vector<std::vector<std::shared_ptr<Cell>>>& allCells) : assignedDroneID(-1) {
+    Sector(int sectorID, int startX, int startY, const std::vector<std::vector<std::shared_ptr<Cell>>>& allCells, const int size) : assignedDroneID(-1), areaSize(size) {
         this->sectorID = sectorID;
         this->grid.resize(10, std::vector<Cell*>(10));
         for (int i = 0; i < 10; i++) {
@@ -45,19 +46,19 @@ public:
             }
         }
         // Set the starting point based on the sector's position (starting point should be the center of the closest cell to the center of the area)
-        if(startY < 150 && startX < 150){
+        if(const float temp = areaSize * 10 / 4; startY < temp && startX < temp){
             // Top-left region
             startingPoint = this->grid[9][9]->getCenter();
             regionID = 0;
             starting_index = 99;
         }
-        else if(startY < 150){
+        else if(startY < temp){
             // Top-right region
             startingPoint = this->grid[9][0]->getCenter();
             regionID = 1;
             starting_index = 90;
         }
-        else if(startX < 150){
+        else if(startX < temp){
             // Bottom-left region
             startingPoint = this->grid[0][9]->getCenter();
             regionID = 2;
@@ -71,10 +72,10 @@ public:
         }
 
         // Calculate travelTime
-        distance = utils::calculateDistance(Position{3000,3000}, startingPoint);
-        int travelTime = static_cast<int>(utils::calculateTime(distance, 30 / 3.6));
+        distance = utils::calculateDistance(Position{areaSize / 2,areaSize / 2}, startingPoint);
+        const int travelTime = static_cast<int>(utils::calculateTime(distance, 30 / 3.6));
 
-        int temp = 1800 - 2 * travelTime;
+        const int temp = 1800 - 2 * travelTime;
 
         // Calculate the time after which the tower should send a new drone to this sector
         timer = temp - static_cast<int>(std::fmod(temp, 240));

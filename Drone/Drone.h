@@ -10,14 +10,16 @@ class Drone {
 private:
     Position position;                              // Current position
     std::mutex positionMutex;                       // Mutex for position
+    std::mutex batteryMutex;                        // Mutex for battery
     Position towerPosition;                         // Tower position
     DroneState::Enum state;                         // Current drone state
     DroneClient redisClient;                        // Redis client
 
     int ID;                                 // Drone's ID (assigned once connected to the tower)
+    int timeScale;                          // Time scale for the simulation
     double batteryLevel;                    // Current battery level
     double  consumptionRatio;               // Drone's battery consumption rate
-    static const double consumptionRate;    // batteryConsumption/s
+    double consumptionRate;    // batteryConsumption/s
     static const double speed;              // Speed in m/s
     static const double flightAutonomy;     // Flight autonomy in minutes
     static const double rechargeTimeMin;    // Minimum recharge time in hours
@@ -25,8 +27,7 @@ private:
     static const double visibilityRange;    // Visibility range in meters
 
 public:
-    Drone();    // Drone constructor
-    ~Drone();   // Drone destructor
+    explicit Drone(int timeScale);    // Drone constructor
 
     // Drone function
     void consumption();                                                           // Battery consumption
@@ -34,6 +35,7 @@ public:
     void changeState(DroneState::Enum newState);                                // Change Drone's state
     void changeConsumptionRatio(double ratio);                                 // Change Drone's consumptionRate
 
+    void move(Position dest, float travelTime);                               // Move toward dest
     void receiveDestination(Position destPoint, int sleepTime,               // Receive new destination
         std::array<Position, 100> waypoints, bool init);
     void moveToPosition(const Position& destination, float totalTravelTime);

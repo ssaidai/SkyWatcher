@@ -1,5 +1,5 @@
 #include "WatchZone.h"
 
 int main() {
-    WatchZone watchZone;
+    WatchZone watchZone(800, 60);
 }
