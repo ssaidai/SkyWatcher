@@ -5,7 +5,7 @@ using namespace operations_research;
 
 Cerebrum::Cerebrum(const std::vector<std::shared_ptr<Sector>> &s) : sectors(s) {
     // Get first sector of region D
-    const Sector *sector = sectors[465].get();
+    const Sector *sector = sectors[0].get();
     // Solve TSP for the first sector
     solveTSP(sector->getWaypoints(), sector->getStartingIndex());
     for (const auto &sect : sectors) {
@@ -131,13 +131,13 @@ void Cerebrum::solveTSP(const std::array<Position, 100> &positions, int starting
     Position starting_position = positions[starting_index];
 
     const auto distance_matrix = ComputeDistanceMatrix(positions);
-    RoutingIndexManager manager(static_cast<int>(positions.size()), 1, start_index);
+    RoutingIndexManager manager((positions.size()), 1, start_index);
     RoutingModel routingModel(manager);
 
     const int transit_callback_index = routingModel.RegisterTransitCallback(
             [&distance_matrix, &manager](int64_t from_index, int64_t to_index) -> int64_t {
-                RoutingNodeIndex from_node = manager.IndexToNode(from_index);
-                RoutingNodeIndex to_node = manager.IndexToNode(to_index);
+                const RoutingNodeIndex from_node = manager.IndexToNode(from_index);
+                const RoutingNodeIndex to_node = manager.IndexToNode(to_index);
                 return distance_matrix[from_node.value()][to_node.value()];
             }
     );
@@ -148,9 +148,7 @@ void Cerebrum::solveTSP(const std::array<Position, 100> &positions, int starting
     search_parameters.set_local_search_metaheuristic(LocalSearchMetaheuristic::GUIDED_LOCAL_SEARCH);
     search_parameters.mutable_time_limit()->set_seconds(3);
 
-    const Assignment* solution = routingModel.SolveWithParameters(search_parameters);
-
-    if (solution != nullptr) {
+    if (const Assignment* solution = routingModel.SolveWithParameters(search_parameters); solution != nullptr) {
         std::vector<RoutingNodeIndex> tour;
         int64_t index = routingModel.Start(0);
         while (!routingModel.IsEnd(index)) {
@@ -161,30 +159,16 @@ void Cerebrum::solveTSP(const std::array<Position, 100> &positions, int starting
         tour.push_back(start_index);
 
         //visualizeTour(tour, positions);
-        // Output the tour
-        for (RoutingNodeIndex node : tour) {
-            Position pos = positions[node.value()];
-            std::cout << "Visit cell " << node << " at position ("
-                      << pos.x << ", " << pos.y << ")\n";
-        }
 
         // Apply transformations for other sectors
-        // For example, mirror over vertical axis and translate
         for (int i = 0; i < 100; ++i) {
             RoutingNodeIndex node = tour[i];
             Position offset = positions[node.value()] - starting_position;
-            relativeTSPPaths[3][i] = offset;
-            relativeTSPPaths[2][i] = {-offset.x, offset.y};
-            relativeTSPPaths[1][i] = {offset.x, -offset.y};
-            relativeTSPPaths[0][i] = {-offset.x, -offset.y};
+            relativeTSPPaths[0][i] = offset;
+            relativeTSPPaths[1][i] = {-offset.x, offset.y};
+            relativeTSPPaths[2][i] = {offset.x, -offset.y};
+            relativeTSPPaths[3][i] = {-offset.x, -offset.y};
         }
-
-        // Output the transformed tour
-        std::cout << "Transformed tour:\n";
-        for (const auto& [x, y] : relativeTSPPaths[3]) {
-            std::cout << "Visit position (" << x << ", " << y << ")\n";
-        }
-
     } else {
         std::cout << "No solution found.\n";
     }
