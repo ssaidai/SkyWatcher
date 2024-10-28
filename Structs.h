@@ -27,13 +27,13 @@ struct Position {
 
 // Define how to serialize Position to JSON
 inline void to_json(nlohmann::json& j, const Position& pos) {
-    j = nlohmann::json{{"x", pos.x}, {"y", pos.y}};
+    j = nlohmann::json{{"x", std::floor(pos.x)}, {"y", std::floor(pos.y)}};
 }
 
 // Define how to deserialize JSON to Position
 inline void from_json(const nlohmann::json& j, Position& pos) {
-    j.at("x").get_to(pos.x);
-    j.at("y").get_to(pos.y);
+    std::floor(j.at("x").get_to(pos.x));
+    std::floor(j.at("y").get_to(pos.y));
 }
 
 struct DroneState {
@@ -46,6 +46,18 @@ struct DroneState {
         Returning, // Returning to the tower
         Offline // Drone is not operative
     };
+
+    [[nodiscard]] static std::string toString (Enum state) {
+        switch (state) {
+            case Ready: return "Ready";
+            case Charging: return "Charging";
+            case Waiting: return "Waiting";
+            case Arriving: return "Arriving";
+            case Monitoring: return "Monitoring";
+            case Returning: return "Returning";
+            case Offline: return "Offline";
+        }
+    }
 };
 
 struct Status {
