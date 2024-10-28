@@ -22,7 +22,7 @@ Drone::~Drone() = default; // Change implementation if new resources should be m
 
 // Constructor
 Drone::Drone() : redisClient(RedisCommunication("127.0.0.1", 6379).get_redis_instance()) {
-    this->batteryLevel = 100; // Initialize battery level at maximum
+    this->batteryLevel = 100.0; // Initialize battery level at maximum
     this->state = DroneState::Ready;
     this->consumptionRatio = 1.0;
 
@@ -35,7 +35,7 @@ Drone::Drone() : redisClient(RedisCommunication("127.0.0.1", 6379).get_redis_ins
         Position startPoint = {init_message["starting_point"]["x"], init_message["starting_point"]["y"]};
         int sleepTime = init_message["timer"];
 
-        std::array<Position, 100> tsp = init_message["tsp"]; // TODO: TO BE IMPLEMENTED
+        std::array<Position, 100> tsp = init_message["tsp"];
 
         // Start the status update thread
         std::thread statusUpdateThread(&Drone::statusUpdateThread, this);
@@ -62,34 +62,39 @@ void Drone::receiveDestination(Position startPoint, int sleepTime,
         double distance = utils::calculateDistance(this->position, startPoint);
         float travelTime = utils::calculateTime(distance, Drone::speed);
 
+
         // Drone Arriving
         this->changeState(DroneState::Arriving);
         this->moveToPosition(startPoint, travelTime);
 
+
         // Drone Waiting
         if (init) {
             this->changeState(DroneState::Waiting);
-            this->changeConsumptionRatio(0.5);
+            this->changeConsumptionRatio(0.0);
             // Implement any waiting logic here
             this->changeConsumptionRatio(1.0);
         }
 
+
         // Drone Monitoring
         this->changeState(DroneState::Monitoring);
+        nlohmann::json message = {{"drone_id", this->ID}};
+        redisClient.start_sleeping_thread(message, static_cast<int>(sleepTime-travelTime));
         int cycleIteration = this->getCycleIteration(sleepTime);
+        double wp_distance = utils::calculateDistance(waypoints[0], waypoints[1]);
+        float wp_travelTime = utils::calculateTime(wp_distance, Drone::speed);
         for (int i = 0; i < cycleIteration; i++) {
             for (const auto& waypoint : waypoints) {
-                double wp_distance = utils::calculateDistance(this->position, waypoint);
-                float wp_travelTime = utils::calculateTime(wp_distance, Drone::speed);
                 this->moveToPosition(waypoint, wp_travelTime);
             }
         }
 
+
         // Drone Returning
         this->changeState(DroneState::Returning);
-        distance = utils::calculateDistance(this->position, this->towerPosition);
-        travelTime = utils::calculateTime(distance, Drone::speed);
         this->moveToPosition(this->towerPosition, travelTime);
+
 
         // Drone Charging
         this->changeState(DroneState::Charging);
@@ -108,7 +113,7 @@ void Drone::moveToPosition(const Position& destination, float totalTravelTime) {
 
     float elapsedTime = 0.0f;
 
-    while (elapsedTime < totalTravelTime) {
+    while (elapsedTime < totalTravelTime && this->state != DroneState::Offline) {
         // Calculate the fraction of travel completed
         float fraction = elapsedTime / totalTravelTime;
 
@@ -136,14 +141,6 @@ void Drone::moveToPosition(const Position& destination, float totalTravelTime) {
         std::lock_guard lock(positionMutex);
         this->position = destination;
     }
-}
-
-// Simulate drone's movement toward an assigned destination
-void Drone::move(Position dest, float travelTime) {
-    // Wait for the drone reaching the destination
-    std::this_thread::sleep_for(std::chrono::duration<double>(travelTime));
-    this->position = dest;
-
 }
 
 // Simulate drone battery consumption
@@ -185,7 +182,7 @@ void Drone::recharge() {
     // Charge until full capacity
     while (this->batteryLevel < 100) {
         // Battery level should never exceed 100%
-        this->batteryLevel = std::max(this->batteryLevel + rechargeRate, 100.0);
+        this->batteryLevel = std::min(this->batteryLevel + rechargeRate, 100.0);
 
         // Wait a secondo before the next iteration
         std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -208,13 +205,13 @@ void Drone::changeConsumptionRatio(double ratio) {
     // Send status update to the tower
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
-    while (true) {
+    while (this->state != DroneState::Offline && this->state != DroneState::Ready) {
         // Create a json object with the drone status
         nlohmann::json status = {
             {"drone_id", this->ID},
             {"position", this->position},
             {"battery_level", std::floor(this->batteryLevel * 100.0) / 100.0},
-            {"state", this->state},
+            {"state", DroneState::toString(this->state)},
             {"timestamp", std::chrono::system_clock::now().time_since_epoch().count()}
         };
 
@@ -228,7 +225,7 @@ void Drone::changeConsumptionRatio(double ratio) {
 
 // Drone's battery thread implementation
 void Drone::batteryUpdateThread() {
-    while (this->getDroneState() != DroneState::Offline && this->getDroneState() != DroneState::Charging) {
+    while (this->state != DroneState::Offline && this->state != DroneState::Charging) {
         // Battery consumption
         this->consumption();
 
@@ -238,7 +235,7 @@ void Drone::batteryUpdateThread() {
 }
 
 int Drone::getCycleIteration(int sleepTime) {
-    int cycleTime = 240; // TODO: 240?
+    int cycleTime = 240;
     return sleepTime / cycleTime;
 }
 

@@ -34,7 +34,6 @@ public:
     void changeState(DroneState::Enum newState);                                // Change Drone's state
     void changeConsumptionRatio(double ratio);                                 // Change Drone's consumptionRate
 
-    void move(Position dest, float travelTime);                               // Move toward dest
     void receiveDestination(Position destPoint, int sleepTime,               // Receive new destination
         std::array<Position, 100> waypoints, bool init);
     void moveToPosition(const Position& destination, float totalTravelTime);
