@@ -182,5 +182,8 @@ WatchZone::WatchZone(const int areaSize, const int timeScale = 1)
     client.start_monitoring_drones();
     std::cout << "Monitoring drones..." << std::endl;
 
+    client.start_substitution_listener();
+    std::cout << "Listening for substitution messages..." << std::endl;
+
     visualizationThread(std::ref(client), sectors);
 }

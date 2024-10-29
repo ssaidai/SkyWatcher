@@ -38,7 +38,8 @@ Drone::Drone(int timeScale) : redisClient(RedisCommunication("127.0.0.1", 6379).
         std::thread batteryUpdateThread(&Drone::batteryUpdateThread, this);
         batteryUpdateThread.detach();
 
-        if(const int sleepTime = init_message["timer"]; sleepTime) {
+        if(init_message.contains("timer")) {
+            const int sleepTime = init_message["timer"];
             const Position startPoint = init_message["starting_point"];
             const std::array<Position, 100> tsp = init_message["tsp"];
 

@@ -56,12 +56,12 @@ public:
         monitor_thread.detach();
     }
 
-    // Send a command to a specific drone
-    void send_command_to_drone(const std::string &drone_id, const std::string &command) const
+    void start_substitution_listener()
     {
-        std::string drone_command_key = "drone:" + drone_id + ":commands";
-        redis->rpush(drone_command_key, command);  // Use a list to enqueue commands for the drone
-        std::cout << "Command sent to drone " << drone_id << ": " << command << std::endl;
+        std::thread substitution_thread([this]() {
+            this->listen_for_substitution_msg();
+        });
+        substitution_thread.detach();
     }
 
     // Optionally broadcast a command to all drones
@@ -122,6 +122,7 @@ private:
         subscriber.on_message([this](const std::string&, const std::string& message)
         {
            nlohmann::json msg = nlohmann::json::parse(message);
+            std::cout << "Substitution message received: " << msg << std::endl;
            substituteDrone(msg["drone_id"]);
         });
 
@@ -240,7 +241,7 @@ private:
     void initialize_drone(const std::string &drone_info_json) {
         // Parse the received drone "hello" message
         auto drone_info = nlohmann::json::parse(drone_info_json);
-        std::string drone_uuid = drone_info["drone_uuid"];
+        const std::string drone_uuid = drone_info["drone_uuid"];
         std::lock_guard lock(sectors_mutex);
 
         // Assign a unique drone ID
@@ -329,13 +330,25 @@ public:
     [[noreturn]] void listen_for_commands(const std::function<void(const nlohmann::json &)> &callback) const
     {
         const std::string drone_command_key = "drone:" + std::to_string(drone_id) + ":commands";
+         auto subscriber = redis->subscriber();
+        subscriber.subscribe(drone_command_key);
+         bool flag = true;
 
-        while (true) {
-            if (const auto command = redis->blpop(drone_command_key, 0)) {
-                std::string cmd = command->second;
-                callback(cmd);  // Execute the callback with the received command
-            }
-        }
+         subscriber.on_message([&subscriber, &flag, callback, this](const std::string&, const std::string& message)
+         {
+             callback(nlohmann::json::parse(message));
+             subscriber.unsubscribe("drone:" + std::to_string(drone_id) + ":commands");
+             flag = false;
+         });
+
+         try
+         {
+             while (flag)
+                 subscriber.consume();
+         } catch (const Error &err)
+         {
+             std::cerr << "Error consuming command messages: " << err.what() << std::endl;
+         }
     }
 
     void listen_for_broadcasts(const std::function<void(const std::string &)> &callback) const
@@ -361,7 +374,7 @@ public:
     // Send status update to the tower
     void send_status_update(const nlohmann::json &status) const
     {
-        std::string status_key = "drone:" + std::to_string(drone_id) + ":status";
+        const std::string status_key = "drone:" + std::to_string(drone_id) + ":status";
         redis->set(status_key, status.dump(), std::chrono::seconds(3));  // Update status in Redis with a TTL of 3 seconds
         std::cout << "Drone " << drone_id << " status updated: " << status << std::endl;
 
@@ -395,7 +408,9 @@ private:
         std::string drone_channel = "drone:" + drone_uuid + ":init";
         subscriber.subscribe(drone_channel);
 
-        subscriber.on_message([this, callback](const std::string& channel, const std::string& message) {
+        bool flag = true;
+
+        subscriber.on_message([this, callback, &subscriber, &flag](const std::string& channel, const std::string& message) {
             // Parse the initialization message
             auto init_message = nlohmann::json::parse(message);
             drone_id = init_message["drone_id"];
@@ -404,12 +419,14 @@ private:
 
             if (callback) {
                 callback(init_message);
+                subscriber.unsubscribe(channel);
+                flag = false;
             }
         });
 
         // Wait for initialization message
         try {
-            while(true)
+            while(flag)
                 subscriber.consume();
         } catch (const Error &err) {
             std::cerr << "Error subscribing to initialization: " << err.what() << std::endl;
