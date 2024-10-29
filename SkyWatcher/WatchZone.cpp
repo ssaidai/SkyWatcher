@@ -61,14 +61,36 @@ sf::Vector2f WatchZone::scalePosition(const double x, const double y) const
 
 void WatchZone::drawGrid(sf::RenderWindow& window) const
 {
-    auto gridColor = sf::Color(200, 200, 200); // Light gray color for grid lines
+    // Draw cells' line
+    auto cellColor = sf::Color(450, 450,450); // Light gray color for grid lines
+    // Create vertical lines
+    for (int i = 0; i <= numCols*10; ++i)
+    {
+        sf::Vertex line[] = {
+            sf::Vertex(sf::Vector2f(i * cellWidth/10, 0), cellColor),
+            sf::Vertex(sf::Vector2f(i * cellWidth/10, windowHeight), cellColor)
+        };
+        window.draw(line, 2, sf::Lines);
+    }
 
+    // Create horizontal lines
+    for (int i = 0; i <= numRows*10; ++i)
+    {
+        sf::Vertex line[] = {
+            sf::Vertex(sf::Vector2f(0, i * cellHeight/10), cellColor),
+            sf::Vertex(sf::Vector2f(windowWidth, i * cellHeight/10), cellColor)
+        };
+        window.draw(line, 2, sf::Lines);
+    }
+
+    // Draw sectors' line
+    auto sectorColor = sf::Color(0, 0, 0); // Light gray color for grid lines
     // Create vertical lines
     for (int i = 0; i <= numCols; ++i)
     {
         sf::Vertex line[] = {
-            sf::Vertex(sf::Vector2f(i * cellWidth, 0), gridColor),
-            sf::Vertex(sf::Vector2f(i * cellWidth, windowHeight), gridColor)
+            sf::Vertex(sf::Vector2f(i * cellWidth, 0), sectorColor),
+            sf::Vertex(sf::Vector2f(i * cellWidth, windowHeight), sectorColor)
         };
         window.draw(line, 2, sf::Lines);
     }
@@ -77,16 +99,31 @@ void WatchZone::drawGrid(sf::RenderWindow& window) const
     for (int i = 0; i <= numRows; ++i)
     {
         sf::Vertex line[] = {
-            sf::Vertex(sf::Vector2f(0, i * cellHeight), gridColor),
-            sf::Vertex(sf::Vector2f(windowWidth, i * cellHeight), gridColor)
+            sf::Vertex(sf::Vector2f(0, i * cellHeight), sectorColor),
+            sf::Vertex(sf::Vector2f(windowWidth, i * cellHeight), sectorColor)
         };
         window.draw(line, 2, sf::Lines);
     }
 }
 
-void WatchZone::drawStartingPoints(sf::RenderWindow& window, const std::vector<std::shared_ptr<Sector>>& sectors) const {
-    sf::Color startingPointColor = sf::Color::Green; // Color for starting points
+void WatchZone::drawPoints(sf::RenderWindow& window, const std::vector<std::shared_ptr<Sector>>& sectors) const {
+    // Draw tower point
+    sf::Color towerPointColor = sf::Color::Black; // Color for starting points
+    Position towerPoint {(this->width/2.0), this->height/2.0};
+    sf::Vector2f position = scalePosition(towerPoint.x, towerPoint.y);
 
+    // Create a square shape for the starting point
+    float size = 8.5f;
+    sf::RectangleShape tower_point_shape(sf::Vector2f(size, size));
+    tower_point_shape.setOrigin(size / 2.0f, size / 2.0f); // Center the shape
+    tower_point_shape.setPosition(position);
+    tower_point_shape.setFillColor(towerPointColor);
+
+    window.draw(tower_point_shape);
+
+
+    // Draw starting points
+    sf::Color startingPointColor = sf::Color::Green; // Color for starting points
     for (const auto& sector : sectors) {
         Position startingPoint = sector->getStartingPoint();
         sf::Vector2f position = scalePosition(startingPoint.x, startingPoint.y);
@@ -123,7 +160,7 @@ void WatchZone::visualizationThread(TowerClient& tower_client, const std::vector
         drawGrid(window);
 
 
-        drawStartingPoints(window, sectors);
+        drawPoints(window, sectors);
         // Optional: Highlight sectors
         //drawSectorHighlights(window, sectors);
 
@@ -150,7 +187,7 @@ void WatchZone::visualizationThread(TowerClient& tower_client, const std::vector
             drone_shape.setFillColor(sf::Color::Blue);
 
             // Optionally change color based on battery level
-            if (battery < 20.0)
+            if (battery == 0.0)
             {
                 drone_shape.setFillColor(sf::Color::Red);
             }
