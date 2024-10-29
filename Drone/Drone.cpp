@@ -57,6 +57,7 @@ Drone::Drone(int timeScale) : redisClient(RedisCommunication("127.0.0.1", 6379).
 void Drone::wait_for_path() {
     redisClient.listen_for_commands([this](const nlohmann::json& command)
     {
+        // TODO: controllare comando e loop while(true) di listen (memory leak??)
         const Position startPoint = command["starting_point"];
         const int sleepTime = command["timer"];
         const std::array<Position, 100> tsp = command["tsp"];
@@ -69,6 +70,7 @@ void Drone::wait_for_path() {
 // init=true if it's called from the constructor, else init=false
 void Drone::receiveDestination(Position startPoint, int sleepTime,
                                std::array<Position, 100> waypoints, bool init = false) {
+    std::this_thread::sleep_for(std::chrono::seconds(6));
     if (this->state == DroneState::Ready) {
         // Initialize Path's parameters
         const double distance = utils::calculateDistance(this->position, startPoint);
@@ -92,10 +94,11 @@ void Drone::receiveDestination(Position startPoint, int sleepTime,
         }
 
 
-        // Drone Monitoring
-        this->changeState(DroneState::Monitoring);
+        // Thead for subsequent drone call
         nlohmann::json message = {{"drone_id", this->ID}};
         redisClient.start_sleeping_thread(message, static_cast<int>(sleepTime-travelTime));
+        // Drone Monitoring
+        this->changeState(DroneState::Monitoring);
         int cycleIteration = this->getCycleIteration(sleepTime);
         double wp_distance = utils::calculateDistance(waypoints[0], waypoints[1]);
         float wp_travelTime = utils::calculateTime(wp_distance, speed);
@@ -130,12 +133,13 @@ void Drone::moveToPosition(const Position& destination, float totalTravelTime) {
 
     float elapsedTime = 0.0f;
 
+
+    Position newPosition{};
     while (elapsedTime < totalTravelTime && this->state != DroneState::Offline) {
         // Calculate the fraction of travel completed
         float fraction = elapsedTime / totalTravelTime;
 
         // Interpolate the position
-        Position newPosition{};
         newPosition.x = startPosition.x + fraction * (destination.x - startPosition.x);
         newPosition.y = startPosition.y + fraction * (destination.y - startPosition.y);
 
@@ -198,7 +202,7 @@ void Drone::changeConsumptionRatio(double ratio) {
     this->consumptionRatio = ratio;
 }
 
-[[noreturn]] void Drone::statusUpdateThread() {
+void Drone::statusUpdateThread() {
     // Send status update to the tower
     std::this_thread::sleep_for(std::chrono::duration<float>(0.5));
     while (this->state != DroneState::Offline) {
@@ -221,7 +225,7 @@ void Drone::changeConsumptionRatio(double ratio) {
 
 // Drone's battery thread implementation
 void Drone::batteryUpdateThread() {
-    while (this->state != DroneState::Offline && this->state != DroneState::Charging) {
+    while (this->state != DroneState::Offline && this->state != DroneState::Charging && this->state != DroneState::Ready) {
         // Battery consumption
         this->consumption();
 
