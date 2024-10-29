@@ -28,6 +28,7 @@ private:
 
 public:
     explicit Drone(int timeScale);    // Drone constructor
+    void wait_for_path();
 
     // Drone function
     void consumption();                                                           // Battery consumption

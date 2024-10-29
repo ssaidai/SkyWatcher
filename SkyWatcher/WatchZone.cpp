@@ -84,17 +84,28 @@ void WatchZone::drawGrid(sf::RenderWindow& window) const
     }
 }
 
-void WatchZone::visualizationThread(TowerClient& tower_client) const
+void WatchZone::drawStartingPoints(sf::RenderWindow& window, const std::vector<std::shared_ptr<Sector>>& sectors) const {
+    sf::Color startingPointColor = sf::Color::Green; // Color for starting points
+
+    for (const auto& sector : sectors) {
+        Position startingPoint = sector->getStartingPoint();
+        sf::Vector2f position = scalePosition(startingPoint.x, startingPoint.y);
+
+        // Create a square shape for the starting point
+        float size = 10.0f;
+        sf::RectangleShape starting_point_shape(sf::Vector2f(size, size));
+        starting_point_shape.setOrigin(size / 2.0f, size / 2.0f); // Center the shape
+        starting_point_shape.setPosition(position);
+        starting_point_shape.setFillColor(startingPointColor);
+
+        window.draw(starting_point_shape);
+    }
+}
+
+
+void WatchZone::visualizationThread(TowerClient& tower_client, const std::vector<std::shared_ptr<Sector>>& sectors) const
 {
     sf::RenderWindow window(sf::VideoMode(windowWidth, windowHeight), "Drone Monitoring");
-
-    // Load font for text (make sure the font file is available)
-    sf::Font font;
-    if (!font.loadFromFile("arial.ttf"))
-    {
-        std::cerr << "Error loading font." << std::endl;
-        // Handle error appropriately
-    }
 
     while (window.isOpen())
     {
@@ -111,6 +122,8 @@ void WatchZone::visualizationThread(TowerClient& tower_client) const
         // Draw the grid
         drawGrid(window);
 
+
+        drawStartingPoints(window, sectors);
         // Optional: Highlight sectors
         //drawSectorHighlights(window, sectors);
 
@@ -144,16 +157,6 @@ void WatchZone::visualizationThread(TowerClient& tower_client) const
 
             // Draw the drone
             window.draw(drone_shape);
-
-            // Optionally, display the drone's ID
-            // sf::Text drone_text;
-            // drone_text.setFont(font);
-            // drone_text.setString(std::to_string(drone_id));
-            // drone_text.setCharacterSize(12);
-            // drone_text.setFillColor(sf::Color::Black);
-            // drone_text.setPosition(position.x + 5, position.y + 5);
-
-            // window.draw(drone_text);
         }
 
         // Display the window
@@ -179,5 +182,5 @@ WatchZone::WatchZone(const int areaSize, const int timeScale = 1)
     client.start_monitoring_drones();
     std::cout << "Monitoring drones..." << std::endl;
 
-    visualizationThread(std::ref(client));
+    visualizationThread(std::ref(client), sectors);
 }

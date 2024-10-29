@@ -30,10 +30,6 @@ Drone::Drone(int timeScale) : redisClient(RedisCommunication("127.0.0.1", 6379).
         this->ID = init_message["drone_id"];
         this->towerPosition = init_message["tower_position"];
         this->position = this->towerPosition;
-        const Position startPoint = init_message["starting_point"];
-        const int sleepTime = init_message["timer"];
-
-        const std::array<Position, 100> tsp = init_message["tsp"];
 
         // Start the status update thread
         std::thread statusUpdateThread(&Drone::statusUpdateThread, this);
@@ -42,14 +38,31 @@ Drone::Drone(int timeScale) : redisClient(RedisCommunication("127.0.0.1", 6379).
         std::thread batteryUpdateThread(&Drone::batteryUpdateThread, this);
         batteryUpdateThread.detach();
 
-        // Initialize operation
-        this->receiveDestination(startPoint, sleepTime, tsp, true);
+        if(const int sleepTime = init_message["timer"]; sleepTime) {
+            const Position startPoint = init_message["starting_point"];
+            const std::array<Position, 100> tsp = init_message["tsp"];
+
+            // Initialize operation
+            this->receiveDestination(startPoint, sleepTime, tsp, true);
+        }
+        else {
+            wait_for_path();
+        }
     });
 
     std::cin.get();
 }
 
+void Drone::wait_for_path() {
+    redisClient.listen_for_commands([this](const nlohmann::json& command)
+    {
+        const Position startPoint = command["starting_point"];
+        const int sleepTime = command["timer"];
+        const std::array<Position, 100> tsp = command["tsp"];
 
+        this->receiveDestination(startPoint, sleepTime, tsp, false);
+    });
+}
 
 // Receive new path from the tower
 // init=true if it's called from the constructor, else init=false
@@ -71,6 +84,9 @@ void Drone::receiveDestination(Position startPoint, int sleepTime,
             this->changeState(DroneState::Waiting);
             this->changeConsumptionRatio(0.0);
             // Implement any waiting logic here
+            redisClient.listen_for_broadcasts([this](const nlohmann::json& message) {
+                std::cout << "Received broadcast: " << message << std::endl;
+            });
             this->changeConsumptionRatio(1.0);
         }
 
@@ -159,24 +175,6 @@ void Drone::consumption() {
 
 // Simulate drone recharge
 void Drone::recharge() {
-    /* TODO: To be used in the final version
-    // Initializing random number generator based on current time and a uniform distribution between 2h and 3h in seconds
-    std::mt19937 rng(static_cast<unsigned int> (std::time(nullptr)));
-    std::uniform_real_distribution<double> chargeTimeDistribution(Drone::rechargeTimeMin * 3600.0, Drone::rechargeTimeMax * 3600.0);
-
-    // chargeTime is a rng number in chargeTimeDistribution
-    // chargeRate is the amount of battery charged every second
-    double rechargeTime = chargeTimeDistribution(rng);
-    double rechargeRate = (100.0 - this->batteryLevel) / rechargeTime;
-
-    // Charge until full capacity
-    while (this->batteryLevel < 100) {
-        // Charge for rechargeRate amount every second
-        this->batteryLevel += rechargeRate;
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
-    */
-
     double rechargeTime = rechargeTimeMin + static_cast<double>(rand()) / RAND_MAX * (rechargeTimeMax - rechargeTimeMin);
     double rechargeRate = (100.0 - this->batteryLevel) / (rechargeTime * 3600.0);
 
@@ -187,6 +185,7 @@ void Drone::recharge() {
     }
 
     this->state = DroneState::Ready;
+    wait_for_path();
 }
 
 // Change drone state
@@ -200,7 +199,7 @@ void Drone::changeConsumptionRatio(double ratio) {
 
 [[noreturn]] void Drone::statusUpdateThread() {
     // Send status update to the tower
-    while (this->state != DroneState::Offline && this->state != DroneState::Ready) {
+    while (this->state != DroneState::Offline) {
         // Create a json object with the drone status
         nlohmann::json status = {
             {"drone_id", this->ID},

@@ -61,6 +61,7 @@ struct DroneState {
             case Returning: return "Returning";
             case Offline: return "Offline";
         }
+        return "Unknown";
     }
 };
 

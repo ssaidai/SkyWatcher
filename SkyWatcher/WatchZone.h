@@ -19,7 +19,8 @@ private:
     std::vector<std::shared_ptr<Sector>> createSectors();
     sf::Vector2f scalePosition(double x, double y) const;
     void drawGrid(sf::RenderWindow& window) const;
-    void visualizationThread(TowerClient &client) const;
+    void drawStartingPoints(sf::RenderWindow& window, const std::vector<std::shared_ptr<Sector>>& sectors) const;
+    void visualizationThread(TowerClient &client, const std::vector<std::shared_ptr<Sector>>& sectors) const;
 
     int numRows, numCols;
 

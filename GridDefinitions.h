@@ -46,7 +46,7 @@ public:
             }
         }
         // Set the starting point based on the sector's position (starting point should be the center of the closest cell to the center of the area)
-        if(const float temp = areaSize * 10 / 4; startY < temp && startX < temp){
+        if(const float temp = (areaSize / 10) / 4; startY < temp && startX < temp){
             // Top-left region
             startingPoint = this->grid[9][9]->getCenter();
             regionID = 0;

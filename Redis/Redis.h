@@ -87,6 +87,7 @@ private:
     Position tower_position;
     std::mutex drones_mutex;
     std::unordered_set<int> active_drones;  // Track active drones
+    std::unordered_set<int> waiting_drones;  // Track drones waiting for a sector
     std::unordered_map<int, nlohmann::json> drone_statuses;  // Store drone statuses
     std::unordered_map<int, std::chrono::system_clock::time_point> drone_initialization_time;
 
@@ -97,7 +98,7 @@ private:
         subscriber.subscribe("drone:handshake");
 
         // Handle incoming handshake messages from drones
-        subscriber.on_message([this](const std::string& channel, const std::string& message) {
+        subscriber.on_message([this](const std::string&, const std::string& message) {
             this->initialize_drone(message);
         });
 
@@ -113,6 +114,58 @@ private:
         }
     }
 
+    void listen_for_substitution_msg()
+    {
+        auto subscriber = redis->subscriber();
+        subscriber.subscribe("drone:go_next");
+
+        subscriber.on_message([this](const std::string&, const std::string& message)
+        {
+           nlohmann::json msg = nlohmann::json::parse(message);
+           substituteDrone(msg["drone_id"]);
+        });
+
+        try {
+            while (true) {
+                subscriber.consume();
+            }
+        } catch (const Error &err) {
+            std::cerr << "Error consuming substitution messages: " << err.what() << std::endl;
+        }
+    }
+
+    void substituteDrone(const int droneID)
+    {
+        std::lock_guard lock(sectors_mutex);
+        std::shared_ptr<Sector> sector = drone_to_sector_map[droneID];
+
+        {
+            std::lock_guard lock(drones_mutex);
+            active_drones.erase(droneID);
+            drone_to_sector_map.erase(droneID);
+            waiting_drones.insert(droneID);
+        }
+
+        for(const auto newDroneID : waiting_drones)
+        {
+            if(auto status = drone_statuses[newDroneID]; status["state"] != "Charging")
+            {
+                sector->assignDrone(newDroneID);
+                drone_to_sector_map[newDroneID] = sector;
+                {
+                    std::lock_guard lock(drones_mutex);
+                    waiting_drones.erase(newDroneID);
+                    active_drones.insert(newDroneID);
+                }
+
+                const std::string channel = "drone:" + std::to_string(newDroneID) + ":commands";
+                const nlohmann::json msg = {{"starting_point", sector->getStartingPoint()}, {"timer", sector->getTimer()}, {"tsp", sector->getTSP()}};
+                redis->publish(channel, msg.dump());
+                break;
+            }
+        }
+    }
+
     void monitor_drones() {
         while (true) {
             std::vector<int> drones_to_check;
@@ -121,6 +174,7 @@ private:
                 drones_to_check.assign(active_drones.begin(), active_drones.end());
             }
 
+            int counter = 0;
             for (int drone_id : drones_to_check) {
                 // Check if the drone is within the grace period
                 if (auto init_time_it = drone_initialization_time.find(drone_id); init_time_it != drone_initialization_time.end()) {
@@ -138,6 +192,8 @@ private:
                         // Drone is alive; process status if needed
                         {
                             const nlohmann::json status = nlohmann::json::parse(*status_opt);
+                            if(status["state"] == "Waiting")
+                                counter++;
                             std::lock_guard lock(drones_mutex);
                             drone_statuses[drone_id] = status;
                         }
@@ -148,6 +204,10 @@ private:
                 } catch (const Error &err) {
                     std::cerr << "Error fetching status for drone " << drone_id << ": " << err.what() << std::endl;
                 }
+            }
+            if(counter && counter == active_drones.size())
+            {
+                broadcast_command("START");
             }
 
             std::this_thread::sleep_for(std::chrono::duration<float>(1.0 / timeScale)); // Adjust as needed
@@ -194,7 +254,7 @@ private:
 
         {
             std::lock_guard lock2(drones_mutex);
-            active_drones.insert(new_drone_id);
+            waiting_drones.insert(new_drone_id);
             drone_initialization_time[new_drone_id] = std::chrono::system_clock::now();
         }
 
@@ -203,6 +263,11 @@ private:
             if (sector->getAssignedDroneID() == -1){
                 sector->assignDrone(new_drone_id);
                 drone_to_sector_map[new_drone_id] = sector;
+                {
+                    std::lock_guard lock2(drones_mutex);
+                    waiting_drones.erase(new_drone_id);
+                    active_drones.insert(new_drone_id);
+                }
                 Position startingPoint = sector->getStartingPoint();
                 init_message = {
                         {"drone_id", new_drone_id},
@@ -261,7 +326,7 @@ public:
      }
 
     // Start listening for commands after initialization
-    [[noreturn]] void listen_for_commands(const std::function<void(const std::string &)> &callback) const
+    [[noreturn]] void listen_for_commands(const std::function<void(const nlohmann::json &)> &callback) const
     {
         const std::string drone_command_key = "drone:" + std::to_string(drone_id) + ":commands";
 
@@ -270,6 +335,22 @@ public:
                 std::string cmd = command->second;
                 callback(cmd);  // Execute the callback with the received command
             }
+        }
+    }
+
+    void listen_for_broadcasts(const std::function<void(const nlohmann::json &)> &callback) const
+    {
+        auto subscriber = redis->subscriber();
+        subscriber.subscribe("drone:broadcast");
+
+        subscriber.on_message([callback](const std::string&, const std::string& message) {
+            callback(nlohmann::json::parse(message));
+        });
+
+        try {
+            subscriber.consume();
+        } catch (const Error &err) {
+            std::cerr << "Error consuming broadcast messages: " << err.what() << std::endl;
         }
     }
 
