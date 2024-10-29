@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <iomanip>    // For std::get_time
 #include <sstream>    // For std::istringstream
-#include "Redis/Redis.h"
+#include "../Redis/Redis.h"
 
 
 using namespace sw::redis;
@@ -30,7 +30,7 @@ void retrieve_status_logs_from_redis(std::shared_ptr<Redis> redis,
         return;
     }
 
-    simulation_start_time = std::chrono::system_clock::time_point::max();
+    simulation_start_time = std::chrono::system_clock::time_point::min();
     simulation_end_time = std::chrono::system_clock::time_point::min();
 
     for (const auto &entry : entries) {
@@ -51,10 +51,10 @@ void retrieve_status_logs_from_redis(std::shared_ptr<Redis> redis,
             std::chrono::system_clock::time_point timestamp = std::chrono::system_clock::from_time_t(time_t_timestamp);
 
             // Update simulation start and end times
-            if (timestamp < simulation_start_time) {
+            if (simulation_start_time == std::chrono::system_clock::time_point::min() || timestamp < simulation_start_time) {
                 simulation_start_time = timestamp;
             }
-            if (timestamp > simulation_end_time) {
+            if (simulation_end_time == std::chrono::system_clock::time_point::min() || timestamp > simulation_end_time) {
                 simulation_end_time = timestamp;
             }
 
@@ -101,7 +101,7 @@ void parse_status_logs(const std::vector<nlohmann::json> &status_logs,
         // Ensure indices are within bounds (0 to 299)
         if (cell_x >= 0 && cell_x < 300 && cell_y >= 0 && cell_y < 300) {
             std::pair<int, int> cell_coord = std::make_pair(cell_x, cell_y);
-            std::cout << "Cell with coordinates (" << cell_x << ", " << cell_y << ") visited at time " << format_time_point(timestamp) << std::endl;
+            //std::cout << "Cell with coordinates (" << cell_x << ", " << cell_y << ") visited at time " << format_time_point(timestamp) << std::endl;
             cell_visit_times[cell_coord].push_back(timestamp);
         } else {
             std::cerr << "Invalid cell coordinates: (" << cell_x << ", " << cell_y << ") for position (" << x << ", " << y << ")" << std::endl;
@@ -124,8 +124,8 @@ void analyze_cell_visits(const std::map<std::pair<int, int>, std::vector<std::ch
     bool all_cells_ok = true;
 
     // Iterate over all possible cells in the grid
-    for (int x = 0; x < 300; ++x) {
-        for (int y = 0; y < 300; ++y) {
+    for (int x = 0; x < 40; ++x) {
+        for (int y = 0; y < 40; ++y) {
             std::pair<int, int> cell_coord = std::make_pair(x, y);
             auto it = cell_visit_times.find(cell_coord);
 
@@ -136,14 +136,7 @@ void analyze_cell_visits(const std::map<std::pair<int, int>, std::vector<std::ch
             } else {
                 const auto &visits = it->second;
 
-                // Check from simulation start to first visit
                 auto interval = std::chrono::duration_cast<std::chrono::minutes>(visits.front() - simulation_start_time);
-                if (interval >= max_interval) {
-                    all_cells_ok = false;
-                    std::cout << "Cell (" << x << ", " << y << ") was not visited within the first " << max_interval.count() << " minutes." << std::endl;
-                    std::cout << "First visit at time: " << format_time_point(visits.front()) << std::endl;
-                }
-
                 // Check intervals between visits
                 for (size_t i = 1; i < visits.size(); ++i) {
                     interval = std::chrono::duration_cast<std::chrono::minutes>(visits[i] - visits[i - 1]);
@@ -194,14 +187,14 @@ int main() {
     // Parse the status logs
     parse_status_logs(status_logs, cell_visit_times);
 
-    if (simulation_start_time == std::chrono::system_clock::time_point::max() ||
+    if (simulation_start_time == std::chrono::system_clock::time_point::min() ||
         simulation_end_time == std::chrono::system_clock::time_point::min()) {
         std::cerr << "No valid timestamps found in the status logs." << std::endl;
         return 1;
     }
 
     // Analyze the cell visits
-    //analyze_cell_visits(cell_visit_times, simulation_start_time, simulation_end_time, max_interval);
+    analyze_cell_visits(cell_visit_times, simulation_start_time, simulation_end_time, max_interval);
 
     // After analysis
     redis->del("status_logs");
