@@ -84,7 +84,7 @@ void Drone::receiveDestination(Position startPoint, int sleepTime,
             this->changeState(DroneState::Waiting);
             this->changeConsumptionRatio(0.0);
             // Implement any waiting logic here
-            redisClient.listen_for_broadcasts([this](const nlohmann::json& message) {
+            redisClient.listen_for_broadcasts([this](const std::string& message) {
                 std::cout << "Received broadcast: " << message << std::endl;
             });
             this->changeConsumptionRatio(1.0);

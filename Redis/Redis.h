@@ -338,17 +338,21 @@ public:
         }
     }
 
-    void listen_for_broadcasts(const std::function<void(const nlohmann::json &)> &callback) const
+    void listen_for_broadcasts(const std::function<void(const std::string &)> &callback) const
     {
         auto subscriber = redis->subscriber();
         subscriber.subscribe("drone:broadcast");
+         bool flag = true;
 
-        subscriber.on_message([callback](const std::string&, const std::string& message) {
-            callback(nlohmann::json::parse(message));
+        subscriber.on_message([&subscriber, &flag , callback](const std::string&, const std::string& message) {
+            callback(message);
+            subscriber.unsubscribe("drone:broadcast");
+            flag = false;
         });
 
         try {
-            subscriber.consume();
+            while (flag)
+                subscriber.consume();
         } catch (const Error &err) {
             std::cerr << "Error consuming broadcast messages: " << err.what() << std::endl;
         }
