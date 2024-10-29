@@ -101,7 +101,7 @@ void parse_status_logs(const std::vector<nlohmann::json> &status_logs,
         // Ensure indices are within bounds (0 to 299)
         if (cell_x >= 0 && cell_x < 300 && cell_y >= 0 && cell_y < 300) {
             std::pair<int, int> cell_coord = std::make_pair(cell_x, cell_y);
-            //std::cout << "Cell with coordinates (" << cell_x << ", " << cell_y << ") visited at time " << format_time_point(timestamp) << std::endl;
+            std::cout << "Cell with coordinates (" << cell_x << ", " << cell_y << ") visited at time " << format_time_point(timestamp) << std::endl;
             cell_visit_times[cell_coord].push_back(timestamp);
         } else {
             std::cerr << "Invalid cell coordinates: (" << cell_x << ", " << cell_y << ") for position (" << x << ", " << y << ")" << std::endl;
