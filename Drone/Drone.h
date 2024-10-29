@@ -43,7 +43,7 @@ public:
 
     // Threads
     void batteryUpdateThread();                                             // Update drone's battery on redis
-    [[noreturn]] void statusUpdateThread();                                // Update drone's status on redis
+    void statusUpdateThread();                                             // Update drone's status on redis
 
     [[nodiscard]] Position getPosition() const;
     [[nodiscard]] Position getDestination() const;
