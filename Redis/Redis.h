@@ -122,7 +122,6 @@ private:
         subscriber.on_message([this](const std::string&, const std::string& message)
         {
            nlohmann::json msg = nlohmann::json::parse(message);
-            std::cout << "Substitution message received: " << msg << std::endl;
            substituteDrone(msg["drone_id"]);
         });
 
@@ -137,6 +136,7 @@ private:
 
     void substituteDrone(const int droneID)
     {
+        std::cout << "Substitution message received: " << droneID << std::endl;
         std::lock_guard lock(sectors_mutex);
         std::shared_ptr<Sector> sector = drone_to_sector_map[droneID];
 
@@ -149,7 +149,7 @@ private:
 
         for(const auto newDroneID : waiting_drones)
         {
-            if(auto status = drone_statuses[newDroneID]; status["state"] != "Charging")
+            if(auto status = drone_statuses[newDroneID]; status["state"] == "Ready")
             {
                 sector->assignDrone(newDroneID);
                 drone_to_sector_map[newDroneID] = sector;
@@ -162,6 +162,7 @@ private:
                 const std::string channel = "drone:" + std::to_string(newDroneID) + ":commands";
                 const nlohmann::json msg = {{"starting_point", sector->getStartingPoint()}, {"timer", sector->getTimer()}, {"tsp", sector->getTSP()}};
                 redis->publish(channel, msg.dump());
+                std::cout << "Drone " << droneID << " substituted with " << newDroneID <<std::endl;
                 break;
             }
         }
@@ -173,6 +174,7 @@ private:
             {
                 std::lock_guard lock(drones_mutex);
                 drones_to_check.assign(active_drones.begin(), active_drones.end());
+                drones_to_check.insert(drones_to_check.end(), waiting_drones.begin(), waiting_drones.end());
             }
 
             int counter = 0;

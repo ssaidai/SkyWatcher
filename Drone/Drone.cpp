@@ -200,6 +200,7 @@ void Drone::changeConsumptionRatio(double ratio) {
 
 [[noreturn]] void Drone::statusUpdateThread() {
     // Send status update to the tower
+    std::this_thread::sleep_for(std::chrono::duration<float>(0.5));
     while (this->state != DroneState::Offline) {
         // Create a json object with the drone status
         nlohmann::json status = {
