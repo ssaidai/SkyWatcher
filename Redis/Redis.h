@@ -213,7 +213,7 @@ private:
                 broadcast_command("START");
             }
 
-            std::this_thread::sleep_for(std::chrono::duration<float>(1.0 / timeScale)); // Adjust as needed
+            std::this_thread::sleep_for(std::chrono::duration<float>(0.1 / timeScale)); // Adjust as needed
         }
     }
 
@@ -329,7 +329,7 @@ public:
      }
 
     // Start listening for commands after initialization
-    [[noreturn]] void listen_for_commands(const std::function<void(const nlohmann::json &)> &callback) const
+    void listen_for_commands(const std::function<void(const nlohmann::json &)> &callback) const
     {
         const std::string drone_command_key = "drone:" + std::to_string(drone_id) + ":commands";
          auto subscriber = redis->subscriber();
@@ -380,16 +380,19 @@ public:
         redis->set(status_key, status.dump(), std::chrono::seconds(3));  // Update status in Redis with a TTL of 3 seconds
         std::cout << "Drone " << drone_id << " status updated: " << status << std::endl;
 
-        // Also append the status to a central Redis Stream
-        // std::string stream_key = "status_logs";
-        // nlohmann::json status_log = status;
-        // status_log["timestamp"] = getCurrentTime();  // Include a timestamp
-        //
-        // // Prepare fields for xadd
-        // std::vector<std::pair<std::string, std::string>> fields = {{"status", status_log.dump()}};
-        //
-        // // Add the status update to the central stream
-        // redis->xadd(stream_key, "*", fields.begin(), fields.end());
+         if (status["state"] == "Monitoring") {
+             // Also append the status to a central Redis Stream
+             std::string stream_key = "status_logs";
+             nlohmann::json status_log = status;
+             status_log["timestamp"] = getCurrentTime();  // Include a timestamp
+
+             // Prepare fields for xadd
+             std::vector<std::pair<std::string, std::string>> fields = {{"status", status_log.dump()}};
+
+             // Add the status update to the central stream
+             redis->xadd(stream_key, "*", fields.begin(), fields.end());
+
+         }
     }
 
 private:
