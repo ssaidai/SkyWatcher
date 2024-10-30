@@ -57,7 +57,6 @@ Drone::Drone(int timeScale) : redisClient(RedisCommunication("127.0.0.1", 6379).
 void Drone::wait_for_path() {
     redisClient.listen_for_commands([this](const nlohmann::json& command)
     {
-        // TODO: controllare comando e loop while(true) di listen (memory leak??)
         const Position startPoint = command["starting_point"];
         const int sleepTime = command["timer"];
         const std::array<Position, 100> tsp = command["tsp"];
@@ -70,7 +69,9 @@ void Drone::wait_for_path() {
 // init=true if it's called from the constructor, else init=false
 void Drone::receiveDestination(Position startPoint, int sleepTime,
                                std::array<Position, 100> waypoints, bool init = false) {
-    std::this_thread::sleep_for(std::chrono::seconds(6));
+    if (init) {
+        std::this_thread::sleep_for(std::chrono::seconds(6));
+    }
     if (this->state == DroneState::Ready) {
         // Initialize Path's parameters
         const double distance = utils::calculateDistance(this->position, startPoint);
@@ -96,7 +97,7 @@ void Drone::receiveDestination(Position startPoint, int sleepTime,
 
         // Thead for subsequent drone call
         nlohmann::json message = {{"drone_id", this->ID}};
-        redisClient.start_sleeping_thread(message, static_cast<int>(sleepTime-travelTime));
+        redisClient.start_sleeping_thread(message, sleepTime-travelTime);
         // Drone Monitoring
         this->changeState(DroneState::Monitoring);
         int cycleIteration = this->getCycleIteration(sleepTime);
@@ -150,7 +151,7 @@ void Drone::moveToPosition(const Position& destination, float totalTravelTime) {
         }
 
         // Sleep for the update interval
-        std::this_thread::sleep_for(std::chrono::duration<float>(0.1f / timeScale));
+        std::this_thread::sleep_for(std::chrono::microseconds(1));
 
         // Update the elapsed time
         auto currentTime = std::chrono::steady_clock::now();
@@ -225,10 +226,11 @@ void Drone::statusUpdateThread() {
 
 // Drone's battery thread implementation
 void Drone::batteryUpdateThread() {
-    while (this->state != DroneState::Offline && this->state != DroneState::Charging && this->state != DroneState::Ready) {
+    while (this->state != DroneState::Offline) {
         // Battery consumption
-        this->consumption();
-
+        if (this->state != DroneState::Charging && this->state != DroneState::Ready) {
+            this->consumption();
+        }
         // Wait a secondo before the next consumption
         std::this_thread::sleep_for(std::chrono::duration<float>(1.0 / timeScale));
     }
