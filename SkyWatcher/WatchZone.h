@@ -34,7 +34,6 @@ private:
     float cellHeight = static_cast<float>(windowHeight) / numRows;
 public:
     WatchZone(int areaSize, int timeScale);
-    int droneCount = 9000;
 };
 
 
