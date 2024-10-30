@@ -77,3 +77,13 @@ void logDebug(const std::string& subject, const std::string& message) {
     logMessage(subject, "DEBUG", message);
 }
 
+// Specific logging functions for command logs
+void logVisit(const std::string& subject, const std::string& message, const std::string& timestamp) {
+    std::lock_guard<std::mutex> lock(logMutex);
+    if (logFile.is_open()) {
+        logFile << timestamp << " [INFO] " << subject << ": " << message << std::endl;
+    } else {
+        std::cerr << "log file is not open!" << std::endl;
+    }
+}
+

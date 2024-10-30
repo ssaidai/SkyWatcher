@@ -20,6 +20,7 @@ void logInfo(const std::string& subject, const std::string& message);
 void logError(const std::string& subject, const std::string& message);
 void logWarning(const std::string& subject, const std::string& message);
 void logDebug(const std::string& subject, const std::string& message);
+void logVisit(const std::string& subject, const std::string& message, const std::string& timestamp);
 
 // Utility function to get current time
 std::string getCurrentTime();

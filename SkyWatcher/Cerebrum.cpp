@@ -5,6 +5,7 @@ using namespace operations_research;
 
 Cerebrum::Cerebrum(const std::vector<std::shared_ptr<Sector>> &s) : sectors(s) {
     // Get first sector of region D
+    logInfo("Tower", "Solving TSP problem for sectors...");
     const Sector *sector = sectors[0].get();
     // Solve TSP for the first sector
     solveTSP(sector->getWaypoints(), sector->getStartingIndex());
@@ -169,8 +170,10 @@ void Cerebrum::solveTSP(const std::array<Position, 100> &positions, int starting
             relativeTSPPaths[2][i] = {offset.x, -offset.y};
             relativeTSPPaths[3][i] = {-offset.x, -offset.y};
         }
+        logInfo("Tower", "TSP paths founded");
     } else {
         std::cout << "No solution found.\n";
+        logError("Tower", "No TSP paths available");
     }
 
 }
