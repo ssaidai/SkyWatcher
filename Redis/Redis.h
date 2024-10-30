@@ -69,6 +69,7 @@ public:
     {
         redis->publish("drone:broadcast", command);  // Publish to a broadcast channel
         std::cout << "Broadcast command: " << command << std::endl;
+        logInfo("Tower", "Broadcast command: " + std::string(command));
     }
 
     std::unordered_map<int, nlohmann::json> get_drone_statuses() {
@@ -111,6 +112,7 @@ private:
             }
         } catch (const Error &err) {
             std::cerr << "Error consuming handshake messages: " << err.what() << std::endl;
+            logError("Tower", "Error while consuming handshake messages " + std::string(err.what()));
         }
     }
 
@@ -131,12 +133,14 @@ private:
             }
         } catch (const Error &err) {
             std::cerr << "Error consuming substitution messages: " << err.what() << std::endl;
+            logError("Tower", "Error while consuming substitution messages " + std::string(err.what()));
         }
     }
 
     void substituteDrone(const int droneID)
     {
         std::cout << "Substitution message received: " << droneID << std::endl;
+        logInfo("Tower", "Substitution message received from drone " + std::to_string(droneID));
         std::lock_guard lock(sectors_mutex);
         std::shared_ptr<Sector> sector = drone_to_sector_map[droneID];
 
@@ -163,6 +167,7 @@ private:
                 const nlohmann::json msg = {{"starting_point", sector->getStartingPoint()}, {"timer", sector->getTimer()}, {"tsp", sector->getTSP()}};
                 redis->publish(channel, msg.dump());
                 std::cout << "Drone " << droneID << " substituted with " << newDroneID <<std::endl;
+                logInfo("Tower", "Drone " + std::to_string(droneID) + " substituted with drone " + std::to_string(newDroneID));
                 break;
             }
         }
@@ -206,6 +211,7 @@ private:
                     }
                 } catch (const Error &err) {
                     std::cerr << "Error fetching status for drone " << drone_id << ": " << err.what() << std::endl;
+                    logError("Tower", "Error fetching status for drone " + std::to_string(drone_id) + ": " + std::string(err.what()));
                 }
             }
             if(counter && counter == active_drones.size())
@@ -219,6 +225,7 @@ private:
 
     void handle_unresponsive_drone(const int drone_id) {
         std::cout << "Drone " << drone_id << " is not responding. Taking action!" << std::endl;
+        logWarning("Tower", "Drone " + std::to_string(drone_id) + " is not responding. Taking action!");
 
         {
             std::lock_guard lock(sectors_mutex);
@@ -288,6 +295,7 @@ private:
         redis->publish(drone_channel, init_message.dump());
 
         std::cout << "Drone " << drone_uuid << " initialized with ID: " << new_drone_id << std::endl;
+        logInfo("Tower", "Drone " + std::string(drone_uuid) + " initialiazed with ID: " + std::to_string(new_drone_id));
     }
 };
 

@@ -3,6 +3,7 @@
 
 std::vector<std::shared_ptr<Sector>> WatchZone::createSectors()
 {
+    logInfo("Tower", "Creating sectors...");
     float cellSize = 20; // Assuming 20m x 20m cells
     size_t cellsPerSector = 10; // 10x10 cells per sector
     auto sectorSize = static_cast<size_t>(cellsPerSector * cellSize);
@@ -36,7 +37,7 @@ std::vector<std::shared_ptr<Sector>> WatchZone::createSectors()
             sectors.emplace_back(std::make_shared<Sector>(sectorID++, startX, startY, allCells, this->height));
         }
     }
-
+    logInfo("Tower", "Sectors created");
     return sectors;
 }
 
@@ -213,14 +214,17 @@ WatchZone::WatchZone(const int areaSize, const int timeScale = 1)
     // Listen for drone connections
     client.start_listening_for_drones();
     std::cout << "Listening for drone connections..." << std::endl;
+    logInfo("Tower", "Start listening for drone connection...");
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
     // Look for disconnected drones
     client.start_monitoring_drones();
     std::cout << "Monitoring drones..." << std::endl;
+    logInfo("Tower", "Start monitoring drones...");
 
     client.start_substitution_listener();
     std::cout << "Listening for substitution messages..." << std::endl;
+    logInfo("Tower", "Start listening for drone substitution requests...");
 
     visualizationThread(std::ref(client), sectors);
 }
