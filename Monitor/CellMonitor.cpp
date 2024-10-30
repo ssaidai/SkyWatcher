@@ -179,14 +179,29 @@ void analyze_cell_visits(const std::map<std::pair<int, int>, std::vector<std::ch
 }
 
 
-int main() {
+int main(int argc, char* argv[]) {
+    // Check if area size is provided as a command-line argument
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <area_size>" << std::endl;
+        return 1;  // Exit with error code if area_size is not provided
+    }
+
+    int area_size;
+    try {
+        area_size = std::stoi(argv[1]);
+    } catch (const std::invalid_argument& e) {
+        std::cerr << "Invalid area size argument. Please provide a valid integer for area size." << std::endl;
+        return 1;
+    } catch (const std::out_of_range& e) {
+        std::cerr << "Area size argument out of range. Please provide a smaller integer." << std::endl;
+        return 1;
+    }
     // Initialize Redis connection
     RedisCommunication redis_comm("127.0.0.1", 6379);
     auto redis = redis_comm.get_redis_instance();
 
     const std::chrono::minutes max_interval(5);
 
-    int area_size = 800;
     // logOpen("tower - " + getCurrentTime() + ".log");
     std::string logFile = "drone_monitoring.log"; // adjust the filename to be unique using timestamp di needed
     openLogFiles(logFile);
