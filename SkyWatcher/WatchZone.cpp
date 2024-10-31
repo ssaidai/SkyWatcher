@@ -4,9 +4,9 @@
 std::vector<std::shared_ptr<Sector>> WatchZone::createSectors()
 {
     logInfo("Tower", "Creating sectors...");
-    float cellSize = 20; // Assuming 20m x 20m cells
-    size_t cellsPerSector = 10; // 10x10 cells per sector
-    auto sectorSize = static_cast<size_t>(cellsPerSector * cellSize);
+    constexpr float cellSize = 20; // Assuming 20m x 20m cells
+    constexpr size_t cellsPerSector = 10; // 10x10 cells per sector
+    constexpr auto sectorSize = static_cast<size_t>(cellsPerSector * cellSize);
 
     this->numRows = static_cast<std::size_t>(std::ceil(this->height / cellSize));
     this->numCols = static_cast<std::size_t>(std::ceil(this->width / cellSize));
@@ -26,7 +26,7 @@ std::vector<std::shared_ptr<Sector>> WatchZone::createSectors()
     this->numRows/=10;
 
     std::vector<std::shared_ptr<Sector>> sectors;
-    sectors.reserve(9000); // Change this to be dynamic
+    sectors.reserve(numCols * numRows); // Change this to be dynamic
     int sectorID = 0;
     for (size_t y = 0; y < height; y += sectorSize)
     {
@@ -63,11 +63,11 @@ sf::Vector2f WatchZone::scalePosition(const double x, const double y) const
 void WatchZone::drawGrid(sf::RenderWindow& window) const
 {
     // Draw cells' line
-    auto cellColor = sf::Color(450, 450,450); // Light gray color for grid lines
+    const auto cellColor = sf::Color(200, 200,200); // Light gray color for grid lines
     // Create vertical lines
     for (int i = 0; i <= numCols*10; ++i)
     {
-        sf::Vertex line[] = {
+        const sf::Vertex line[] = {
             sf::Vertex(sf::Vector2f(i * cellWidth/10, 0), cellColor),
             sf::Vertex(sf::Vector2f(i * cellWidth/10, windowHeight), cellColor)
         };
@@ -77,7 +77,7 @@ void WatchZone::drawGrid(sf::RenderWindow& window) const
     // Create horizontal lines
     for (int i = 0; i <= numRows*10; ++i)
     {
-        sf::Vertex line[] = {
+        const sf::Vertex line[] = {
             sf::Vertex(sf::Vector2f(0, i * cellHeight/10), cellColor),
             sf::Vertex(sf::Vector2f(windowWidth, i * cellHeight/10), cellColor)
         };
@@ -85,11 +85,11 @@ void WatchZone::drawGrid(sf::RenderWindow& window) const
     }
 
     // Draw sectors' line
-    auto sectorColor = sf::Color(0, 0, 0); // Light gray color for grid lines
+    const auto sectorColor = sf::Color(0, 0, 0); // Light gray color for grid lines
     // Create vertical lines
     for (int i = 0; i <= numCols; ++i)
     {
-        sf::Vertex line[] = {
+        const sf::Vertex line[] = {
             sf::Vertex(sf::Vector2f(i * cellWidth, 0), sectorColor),
             sf::Vertex(sf::Vector2f(i * cellWidth, windowHeight), sectorColor)
         };
@@ -99,7 +99,7 @@ void WatchZone::drawGrid(sf::RenderWindow& window) const
     // Create horizontal lines
     for (int i = 0; i <= numRows; ++i)
     {
-        sf::Vertex line[] = {
+        const sf::Vertex line[] = {
             sf::Vertex(sf::Vector2f(0, i * cellHeight), sectorColor),
             sf::Vertex(sf::Vector2f(windowWidth, i * cellHeight), sectorColor)
         };
@@ -126,8 +126,8 @@ void WatchZone::drawPoints(sf::RenderWindow& window, const std::vector<std::shar
     // Draw starting points
     sf::Color startingPointColor = sf::Color::Green; // Color for starting points
     for (const auto& sector : sectors) {
-        Position startingPoint = sector->getStartingPoint();
-        sf::Vector2f position = scalePosition(startingPoint.x, startingPoint.y);
+        auto [x, y] = sector->getStartingPoint();
+        sf::Vector2f position = scalePosition(x, y);
 
         // Create a square shape for the starting point
         float size = 10.0f;

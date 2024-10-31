@@ -5,9 +5,9 @@
 #include <vector>
 #include <cstdint>
 #include <nlohmann/json.hpp>
-#include "Structs.h"
-#include "GridDefinitions.h"
-#include "../Utils/Logger.h"
+#include "Utils/Structs.h"
+#include "Utils/GridDefinitions.h"
+#include "Utils/Logger.h"
 #include <SFML/Graphics.hpp>
 #include <ortools/constraint_solver/routing.h>
 #include <ortools/constraint_solver/routing_enums.pb.h>

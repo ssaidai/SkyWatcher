@@ -1,10 +1,4 @@
-#include "random"
-#include "thread"
-#include "chrono"
-#include "cmath"
-
 #include "Drone.h"
-#include "Utils/utils.h"
 
 
 // Initialize static members
@@ -18,7 +12,7 @@ constexpr float cellTravelTime = 20.0 / (30.0 / 3.6);
 
 
 // Constructor
-Drone::Drone(int timeScale) : redisClient(RedisCommunication("127.0.0.1", 6379).get_redis_instance(), timeScale), timeScale(timeScale) {
+Drone::Drone(const int timeScale) : redisClient(RedisCommunication("127.0.0.1", 6379).get_redis_instance(), timeScale), timeScale(timeScale) {
     this->batteryLevel = 100.0; // Initialize battery level at maximum
     this->state = DroneState::Ready;
     this->consumptionRatio = 1.0;
@@ -67,20 +61,20 @@ void Drone::wait_for_path() {
 
 // Receive new path from the tower
 // init=true if it's called from the constructor, else init=false
-void Drone::receiveDestination(Position startPoint, int sleepTime,
-                               std::array<Position, 100> waypoints, bool init = false) {
-    if (init) {
-        std::this_thread::sleep_for(std::chrono::seconds(6));
-    }
+void Drone::receiveDestination(const Position destPoint, const int sleepTime,
+                               const std::array<Position, 100>& waypoints, const bool init = false) {
     if (this->state == DroneState::Ready) {
+        if(init)
+            std::this_thread::sleep_for(std::chrono::seconds(6));
+
         // Initialize Path's parameters
-        const double distance = utils::calculateDistance(this->position, startPoint);
+        const double distance = utils::calculateDistance(this->position, destPoint);
         const float travelTime = utils::calculateTime(distance, speed);
 
 
         // Drone Arriving
         this->changeState(DroneState::Arriving);
-        this->moveToPosition(startPoint, travelTime);
+        this->moveToPosition(destPoint, travelTime);
 
 
         // Drone Waiting
@@ -96,13 +90,13 @@ void Drone::receiveDestination(Position startPoint, int sleepTime,
 
 
         // Thead for subsequent drone call
-        nlohmann::json message = {{"drone_id", this->ID}};
-        redisClient.start_sleeping_thread(message, sleepTime-travelTime);
+        const nlohmann::json message = {{"drone_id", this->ID}};
+        redisClient.start_sleeping_thread(message, sleepTime - travelTime);
         // Drone Monitoring
         this->changeState(DroneState::Monitoring);
-        int cycleIteration = this->getCycleIteration(sleepTime);
-        double wp_distance = utils::calculateDistance(waypoints[0], waypoints[1]);
-        float wp_travelTime = utils::calculateTime(wp_distance, speed);
+        const int cycleIteration = this->getCycleIteration(sleepTime);
+        const double wp_distance = utils::calculateDistance(waypoints[0], waypoints[1]);
+        const float wp_travelTime = utils::calculateTime(wp_distance, speed);
         for (int i = 0; i < cycleIteration; i++) {
             for (const auto& waypoint : waypoints) {
                 this->moveToPosition(waypoint, wp_travelTime);
@@ -125,7 +119,7 @@ void Drone::moveToPosition(const Position& destination, float totalTravelTime) {
 
     totalTravelTime /= timeScale;
     // Record the start time
-    auto startTime = std::chrono::steady_clock::now();
+    const auto startTime = std::chrono::steady_clock::now();
     Position startPosition{};
     {
         std::lock_guard lock(positionMutex);
@@ -138,7 +132,7 @@ void Drone::moveToPosition(const Position& destination, float totalTravelTime) {
     Position newPosition{};
     while (elapsedTime < totalTravelTime && this->state != DroneState::Offline) {
         // Calculate the fraction of travel completed
-        float fraction = elapsedTime / totalTravelTime;
+        const float fraction = elapsedTime / totalTravelTime;
 
         // Interpolate the position
         newPosition.x = startPosition.x + fraction * (destination.x - startPosition.x);
@@ -181,11 +175,11 @@ void Drone::consumption() {
 
 // Simulate drone recharge
 void Drone::recharge() {
-    double rechargeTime = rechargeTimeMin + static_cast<double>(rand()) / RAND_MAX * (rechargeTimeMax - rechargeTimeMin);
-    double rechargeRate = (100.0 - this->batteryLevel) / (rechargeTime * 3600.0);
+    const double rechargeTime = rechargeTimeMin + static_cast<double>(rand()) / RAND_MAX * (rechargeTimeMax - rechargeTimeMin);
+    const double rechargeRate = (100.0 - this->batteryLevel) / (rechargeTime * 3600.0);
 
     while (this->batteryLevel < 100.0) {
-        double rechargeAmount = rechargeRate * timeScale;
+        const double rechargeAmount = rechargeRate * timeScale;
         this->batteryLevel = std::min(this->batteryLevel + rechargeAmount, 100.0);
         std::this_thread::sleep_for(std::chrono::duration<float>(1.0f));
     }
@@ -199,7 +193,7 @@ void Drone::changeState(const DroneState::Enum newState) {
     this->state = newState;
 }
 
-void Drone::changeConsumptionRatio(double ratio) {
+void Drone::changeConsumptionRatio(const double ratio) {
     this->consumptionRatio = ratio;
 }
 
@@ -226,11 +220,10 @@ void Drone::statusUpdateThread() {
 
 // Drone's battery thread implementation
 void Drone::batteryUpdateThread() {
-    while (this->state != DroneState::Offline) {
+    while (this->state != DroneState::Offline && this->state != DroneState::Charging && this->state != DroneState::Ready) {
         // Battery consumption
-        if (this->state != DroneState::Charging && this->state != DroneState::Ready) {
-            this->consumption();
-        }
+        this->consumption();
+
         // Wait a secondo before the next consumption
         std::this_thread::sleep_for(std::chrono::duration<float>(1.0 / timeScale));
     }

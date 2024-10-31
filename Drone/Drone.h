@@ -1,9 +1,14 @@
 #ifndef SKYWATCHER_DRONE_H
 #define SKYWATCHER_DRONE_H
 
+#include "random"
+#include "thread"
+#include "chrono"
+#include "cmath"
 #include <memory>
-#include "../Structs.h"
-#include "../Redis/Redis.h"
+#include "Utils/Structs.h"
+#include "Utils/Redis.h"
+#include "Utils/utils.h"
 
 
 class Drone {
@@ -27,7 +32,7 @@ private:
     static const double visibilityRange;    // Visibility range in meters
 
 public:
-    explicit Drone(int timeScale);    // Drone constructor
+    explicit Drone(int timeScale = 1);    // Drone constructor
     void wait_for_path();
 
     // Drone function
@@ -38,7 +43,7 @@ public:
 
     void move(Position dest, float travelTime);                               // Move toward dest
     void receiveDestination(Position destPoint, int sleepTime,               // Receive new destination
-        std::array<Position, 100> waypoints, bool init);
+                            const std::array<Position, 100>& waypoints, bool init);
     void moveToPosition(const Position& destination, float totalTravelTime);
 
     // Threads

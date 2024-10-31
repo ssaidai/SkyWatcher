@@ -4,8 +4,8 @@
 #include <vector>
 #include "Drone/Drone.h"
 #include "Cerebrum.h"
-#include "Redis/Redis.h"
-#include "../Utils/Logger.h"
+#include "Utils/Redis.h"
+#include "Utils/Logger.h"
 
 // SkyWatcher class using grid implementation and TSP algorithm
 class WatchZone {
