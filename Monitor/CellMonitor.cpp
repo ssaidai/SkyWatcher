@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <iomanip>    // For std::get_time
 #include <sstream>    // For std::istringstream
-#include "../Redis/Redis.h"
+#include "Utils/Redis.h"
 
 
 using namespace sw::redis;

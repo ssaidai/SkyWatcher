@@ -30,6 +30,12 @@ add_executable(Drone
         # Add other source files if any
 )
 
+add_executable(Monitor
+        Monitor/CellMonitor.cpp
+        Utils/Logger.cpp
+        # Add other source files if any
+)
+
 # Find packages
 find_package(ortools REQUIRED)
 find_package(Protobuf REQUIRED)
@@ -50,6 +56,11 @@ target_link_libraries(SkyWatcher PRIVATE
 )
 
 target_link_libraries(Drone PRIVATE
+        ${REDIS_PLUS_PLUS_LIBRARY}
+        ${HIREDIS_LIBRARY}
+)
+
+target_link_libraries(Monitor PRIVATE
         ${REDIS_PLUS_PLUS_LIBRARY}
         ${HIREDIS_LIBRARY}
 )
