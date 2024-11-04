@@ -234,7 +234,7 @@ int main(int argc, char* argv[]) {
 
     // After analysis
     redis->del("status_logs");
-    closeLogFiles;
+    closeLogFiles();
 
 
     return 0;
